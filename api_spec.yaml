@@ -1,0 +1,1231 @@
+openapi: 3.0.3
+info:
+  title: 课堂行为分析系统 API
+  description: |
+    基于VHEAT算法的学生课堂行为智能识别系统API文档
+    
+    ## 功能模块
+    1. 账号管理模块 - 用户注册、登录、权限管理
+    2. 视频处理模块 - 视频上传、处理状态查询
+    3. 行为分析模块 - 行为统计、时间序列、异常检测
+    4. 教学优化模块 - 优化建议、跨课次对比
+    5. 报告导出模块 - PDF报告生成
+    
+    ## 认证方式
+    使用JWT Bearer Token认证，在请求头中添加：
+    ```
+    Authorization: Bearer {token}
+    ```
+  version: 1.0.0
+  contact:
+    name: 系统开发团队
+    email: support@example.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: 本地开发环境
+  - url: https://api.example.com/api/v1
+    description: 生产环境
+
+tags:
+  - name: 认证
+    description: 用户注册、登录、认证相关接口
+  - name: 视频管理
+    description: 视频上传、查询、状态管理
+  - name: 行为分析
+    description: 行为统计、时间序列分析、异常检测
+  - name: 教学优化
+    description: 优化建议、跨课次对比、优秀片段
+  - name: 报告导出
+    description: PDF报告生成与下载
+
+paths:
+  # ==================== 认证模块 ====================
+  /auth/register:
+    post:
+      tags:
+        - 认证
+      summary: 用户注册
+      description: 新用户注册账号，支持教师和管理员角色
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - email
+                - role
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 50
+                  example: "teacher001"
+                  description: 用户名，3-50个字符
+                password:
+                  type: string
+                  minLength: 8
+                  maxLength: 100
+                  format: password
+                  example: "SecurePass123!"
+                  description: 密码，至少8位，需包含字母和数字
+                email:
+                  type: string
+                  format: email
+                  example: "teacher@example.com"
+                  description: 邮箱地址
+                role:
+                  type: string
+                  enum: [teacher, admin]
+                  example: "teacher"
+                  description: 用户角色
+                unit:
+                  type: string
+                  maxLength: 100
+                  example: "岭南师范学院"
+                  description: 所属单位（可选）
+                class_name:
+                  type: string
+                  maxLength: 100
+                  example: "高一(1)班"
+                  description: 班级名称（可选，教师角色建议填写）
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                    example: 1
+                  username:
+                    type: string
+                    example: "teacher001"
+                  message:
+                    type: string
+                    example: "注册成功"
+        '400':
+          description: 请求参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 用户名已存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - 认证
+      summary: 用户登录
+      description: 用户登录，返回JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: "teacher001"
+                password:
+                  type: string
+                  format: password
+                  example: "SecurePass123!"
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refresh_token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  token_type:
+                    type: string
+                    example: "bearer"
+                  user:
+                    $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: 用户名或密码错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/me:
+    get:
+      tags:
+        - 认证
+      summary: 获取当前用户信息
+      description: 获取当前登录用户的详细信息
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '401':
+          description: 未认证或token无效
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/password:
+    put:
+      tags:
+        - 认证
+      summary: 修改密码
+      description: 修改当前用户的密码
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - old_password
+                - new_password
+              properties:
+                old_password:
+                  type: string
+                  format: password
+                  example: "OldPass123!"
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "NewPass123!"
+      responses:
+        '200':
+          description: 密码修改成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "密码修改成功"
+        '400':
+          description: 请求参数错误或旧密码不正确
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== 视频管理模块 ====================
+  /videos/upload:
+    post:
+      tags:
+        - 视频管理
+      summary: 上传视频
+      description: |
+        上传课堂视频文件，系统将异步处理视频。
+        支持格式：MP4, AVI, MOV
+        最大文件大小：2GB
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 视频文件
+                class_name:
+                  type: string
+                  example: "高一(1)班"
+                  description: 班级名称
+                course_name:
+                  type: string
+                  example: "数学"
+                  description: 课程名称
+                lesson_date:
+                  type: string
+                  format: date
+                  example: "2025-10-23"
+                  description: 上课日期（YYYY-MM-DD格式）
+      responses:
+        '202':
+          description: 视频已接受，正在处理
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  video_id:
+                    type: integer
+                    example: 1
+                  status:
+                    type: string
+                    enum: [processing]
+                    example: "processing"
+                  message:
+                    type: string
+                    example: "视频已上传，正在处理中"
+        '400':
+          description: 文件格式不支持或参数错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /videos:
+    get:
+      tags:
+        - 视频管理
+      summary: 获取视频列表
+      description: 分页查询视频列表，支持按班级、课程、日期筛选
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: 页码
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: 每页数量
+        - name: class_name
+          in: query
+          schema:
+            type: string
+          description: 班级名称筛选
+        - name: course_name
+          in: query
+          schema:
+            type: string
+          description: 课程名称筛选
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [uploaded, processing, completed, failed]
+          description: 处理状态筛选
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 100
+                  page:
+                    type: integer
+                    example: 1
+                  page_size:
+                    type: integer
+                    example: 20
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VideoInfo'
+
+  /videos/{video_id}:
+    get:
+      tags:
+        - 视频管理
+      summary: 获取视频详情
+      description: 获取指定视频的详细信息
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 视频ID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VideoDetail'
+        '404':
+          description: 视频不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /videos/{video_id}/status:
+    get:
+      tags:
+        - 视频管理
+      summary: 查询处理状态
+      description: 查询视频处理进度和状态
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video_id:
+                    type: integer
+                    example: 1
+                  status:
+                    type: string
+                    enum: [uploaded, processing, completed, failed]
+                    example: "processing"
+                  progress:
+                    type: number
+                    format: float
+                    minimum: 0
+                    maximum: 1
+                    example: 0.65
+                    description: 处理进度（0-1）
+                  current_frame:
+                    type: integer
+                    example: 1950
+                    description: 当前处理帧数
+                  total_frames:
+                    type: integer
+                    example: 3000
+                    description: 总帧数
+                  estimated_time_remaining:
+                    type: integer
+                    example: 120
+                    description: 预计剩余时间（秒）
+                  error_message:
+                    type: string
+                    nullable: true
+                    example: null
+                    description: 错误信息（如果失败）
+
+  /videos/{video_id}:
+    delete:
+      tags:
+        - 视频管理
+      summary: 删除视频
+      description: 删除视频及其所有相关数据（检测结果、分析报告等）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: 删除成功
+        '404':
+          description: 视频不存在
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ==================== 行为分析模块 ====================
+  /analysis/{video_id}/summary:
+    get:
+      tags:
+        - 行为分析
+      summary: 获取行为统计（整课聚合）
+      description: |
+        获取整节课的行为统计汇总数据。
+        包括学生行为（讨论、举手、阅读、书写、低头、转头）和教师行为的统计。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BehaviorSummary'
+        '404':
+          description: 视频不存在或未完成处理
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /analysis/{video_id}/timeline:
+    get:
+      tags:
+        - 行为分析
+      summary: 获取时间序列数据
+      description: |
+        获取行为检测的时间序列数据，用于绘制可视化图表。
+        数据按时间窗口聚合，支持10秒和60秒两种窗口。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: window
+          in: query
+          schema:
+            type: integer
+            enum: [10, 60]
+            default: 10
+          description: 时间窗口大小（秒）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BehaviorTimeline'
+        '404':
+          description: 视频不存在或未完成处理
+
+  /analysis/{video_id}/anomalies:
+    get:
+      tags:
+        - 行为分析
+      summary: 获取异常时段
+      description: |
+        检测并返回课堂中的异常行为时段。
+        使用Z-score和MAD方法检测异常，如低头率过高、互动率过低等。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: threshold
+          in: query
+          schema:
+            type: number
+            format: float
+            default: 2.0
+          description: 异常检测阈值（Z-score倍数）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video_id:
+                    type: integer
+                    example: 1
+                  anomalies:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Anomaly'
+
+  /analysis/{video_id}/causation:
+    get:
+      tags:
+        - 行为分析
+      summary: 行为成因分析
+      description: |
+        分析学生行为与教师行为、场景元素之间的相关性。
+        计算Pearson相关系数和时间重叠率。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CausationAnalysis'
+
+  # ==================== 教学优化模块 ====================
+  /optimization/{video_id}/recommendations:
+    get:
+      tags:
+        - 教学优化
+      summary: 获取优化建议
+      description: |
+        基于行为分析结果生成教学优化建议。
+        包括互动改进、注意力提升、节奏调整等建议。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video_id:
+                    type: integer
+                    example: 1
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+
+  /optimization/compare:
+    get:
+      tags:
+        - 教学优化
+      summary: 跨课次对比
+      description: |
+        对比多个课次的行为指标，分析教学效果变化趋势。
+        支持变点检测和趋势分析。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_ids
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 视频ID列表，逗号分隔，如 "1,2,3"
+        - name: metrics
+          in: query
+          schema:
+            type: string
+            default: "all"
+          description: 对比指标，可选值：all, interaction, attention, engagement
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComparisonResult'
+
+  /optimization/{video_id}/highlights:
+    get:
+      tags:
+        - 教学优化
+      summary: 获取优秀课堂片段
+      description: |
+        根据预设指标阈值自动筛选高质量课堂片段。
+        包括互动占比高、异常行为少、师生互动良好的时段。
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: video_id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: min_score
+          in: query
+          schema:
+            type: number
+            format: float
+            default: 0.8
+          description: 最低质量评分（0-1）
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  video_id:
+                    type: integer
+                    example: 1
+                  highlights:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Highlight'
+
+  # ==================== 报告导出模块 ====================
+  /reports/generate:
+    post:
+      tags:
+        - 报告导出
+      summary: 生成分析报告
+      description: |
+        生成PDF格式的课堂行为分析报告。
+        报告包含行为统计、可视化图表、异常分析、优化建议等内容。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - video_id
+              properties:
+                video_id:
+                  type: integer
+                  example: 1
+                include_charts:
+                  type: boolean
+                  default: true
+                  description: 是否包含图表
+                include_recommendations:
+                  type: boolean
+                  default: true
+                  description: 是否包含优化建议
+                report_type:
+                  type: string
+                  enum: [summary, detailed, comparison]
+                  default: "summary"
+                  description: 报告类型
+      responses:
+        '202':
+          description: 报告生成任务已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: string
+                    format: uuid
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+                  status:
+                    type: string
+                    enum: [generating]
+                    example: "generating"
+                  estimated_time:
+                    type: integer
+                    example: 30
+                    description: 预计生成时间（秒）
+
+  /reports/{report_id}:
+    get:
+      tags:
+        - 报告导出
+      summary: 查询报告状态
+      description: 查询报告生成状态，完成后可下载
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [generating, completed, failed]
+                    example: "completed"
+                  download_url:
+                    type: string
+                    nullable: true
+                    example: "/api/v1/reports/550e8400-e29b-41d4-a716-446655440000/download"
+                  error_message:
+                    type: string
+                    nullable: true
+
+  /reports/{report_id}/download:
+    get:
+      tags:
+        - 报告导出
+      summary: 下载报告
+      description: 下载生成的PDF报告文件
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: PDF文件
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: 报告不存在或未完成
+
+# ==================== 组件定义 ====================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer Token认证
+
+  schemas:
+    UserInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        username:
+          type: string
+          example: "teacher001"
+        email:
+          type: string
+          format: email
+          example: "teacher@example.com"
+        role:
+          type: string
+          enum: [teacher, admin]
+          example: "teacher"
+        unit:
+          type: string
+          nullable: true
+          example: "岭南师范学院"
+        class_name:
+          type: string
+          nullable: true
+          example: "高一(1)班"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-23T10:00:00Z"
+
+    VideoInfo:
+      type: object
+      properties:
+        video_id:
+          type: integer
+          example: 1
+        filename:
+          type: string
+          example: "class_20251023.mp4"
+        class_name:
+          type: string
+          nullable: true
+          example: "高一(1)班"
+        course_name:
+          type: string
+          nullable: true
+          example: "数学"
+        lesson_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-10-23"
+        duration:
+          type: integer
+          nullable: true
+          example: 3600
+          description: 视频时长（秒）
+        status:
+          type: string
+          enum: [uploaded, processing, completed, failed]
+          example: "completed"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-10-23T10:00:00Z"
+
+    VideoDetail:
+      allOf:
+        - $ref: '#/components/schemas/VideoInfo'
+        - type: object
+          properties:
+            file_size:
+              type: integer
+              example: 1073741824
+              description: 文件大小（字节）
+            fps:
+              type: number
+              format: float
+              example: 30.0
+            resolution:
+              type: string
+              example: "1920x1080"
+            total_frames:
+              type: integer
+              example: 108000
+            user_id:
+              type: integer
+              example: 1
+
+    BehaviorSummary:
+      type: object
+      properties:
+        video_id:
+          type: integer
+          example: 1
+        duration:
+          type: integer
+          example: 3600
+          description: 总时长（秒）
+        total_frames:
+          type: integer
+          example: 3000
+        behavior_summary:
+          type: object
+          description: 学生行为统计
+          properties:
+            discuss:
+              $ref: '#/components/schemas/BehaviorStats'
+            hand-raising:
+              $ref: '#/components/schemas/BehaviorStats'
+            read:
+              $ref: '#/components/schemas/BehaviorStats'
+            write:
+              $ref: '#/components/schemas/BehaviorStats'
+            BowHead:
+              $ref: '#/components/schemas/BehaviorStats'
+            TurnHead:
+              $ref: '#/components/schemas/BehaviorStats'
+        teacher_behavior:
+          type: object
+          description: 教师行为统计
+          properties:
+            teacher:
+              $ref: '#/components/schemas/BehaviorStats'
+            blackboard-writing:
+              $ref: '#/components/schemas/BehaviorStats'
+            screen:
+              $ref: '#/components/schemas/BehaviorStats'
+            guide:
+              $ref: '#/components/schemas/BehaviorStats'
+            answer:
+              $ref: '#/components/schemas/BehaviorStats'
+
+    BehaviorStats:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 45
+          description: 发生次数
+        total_duration:
+          type: integer
+          example: 1200
+          description: 总时长（秒）
+        percentage:
+          type: number
+          format: float
+          example: 33.3
+          description: 占比（百分比）
+
+    BehaviorTimeline:
+      type: object
+      properties:
+        video_id:
+          type: integer
+          example: 1
+        window_size:
+          type: integer
+          example: 10
+          description: 时间窗口大小（秒）
+        timeline:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: number
+                format: float
+                example: 0.0
+                description: 起始时间（秒）
+              behaviors:
+                type: object
+                description: 该窗口内检测到的行为数量
+                properties:
+                  discuss:
+                    type: integer
+                    example: 3
+                  hand-raising:
+                    type: integer
+                    example: 1
+                  read:
+                    type: integer
+                    example: 15
+                  write:
+                    type: integer
+                    example: 8
+                  BowHead:
+                    type: integer
+                    example: 2
+                  TurnHead:
+                    type: integer
+                    example: 1
+
+    Anomaly:
+      type: object
+      properties:
+        start_time:
+          type: integer
+          example: 1200
+          description: 异常开始时间（秒）
+        end_time:
+          type: integer
+          example: 1500
+          description: 异常结束时间（秒）
+        type:
+          type: string
+          example: "high_bowhead_rate"
+          description: 异常类型
+          enum:
+            - high_bowhead_rate
+            - low_interaction_rate
+            - high_turnhead_rate
+            - low_attention_rate
+        severity:
+          type: string
+          enum: [low, medium, high]
+          example: "medium"
+          description: 严重程度
+        description:
+          type: string
+          example: "低头率超过阈值（>30%）"
+        behavior_stats:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/BehaviorStats'
+
+    CausationAnalysis:
+      type: object
+      properties:
+        video_id:
+          type: integer
+          example: 1
+        correlations:
+          type: array
+          items:
+            type: object
+            properties:
+              student_behavior:
+                type: string
+                example: "discuss"
+              teacher_behavior:
+                type: string
+                example: "guide"
+              correlation_coefficient:
+                type: number
+                format: float
+                example: 0.75
+                description: Pearson相关系数（-1到1）
+              lag_time:
+                type: integer
+                example: 5
+                description: 滞后时间（秒）
+              interpretation:
+                type: string
+                example: "教师引导行为与学生讨论行为呈正相关，滞后5秒"
+        overlap_analysis:
+          type: array
+          items:
+            type: object
+            properties:
+              student_behavior:
+                type: string
+                example: "read"
+              context:
+                type: string
+                example: "screen"
+              overlap_rate:
+                type: number
+                format: float
+                example: 0.65
+                description: 重叠率（0-1）
+              description:
+                type: string
+                example: "65%的阅读行为发生在屏幕使用期间"
+
+    Recommendation:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [interaction, attention, rhythm, engagement]
+          example: "interaction"
+          description: 建议类型
+        priority:
+          type: string
+          enum: [low, medium, high]
+          example: "high"
+          description: 优先级
+        title:
+          type: string
+          example: "增加互动频次"
+        description:
+          type: string
+          example: "讨论占比不足（当前15%，建议≥30%），建议增加分组讨论环节"
+        suggested_actions:
+          type: array
+          items:
+            type: string
+          example:
+            - "在课程中段（20-30分钟）增加小组讨论"
+            - "设置讨论问题，引导学生互动"
+
+    ComparisonResult:
+      type: object
+      properties:
+        comparison:
+          type: array
+          items:
+            type: object
+            properties:
+              video_id:
+                type: integer
+                example: 1
+              lesson_date:
+                type: string
+                format: date
+                example: "2025-10-20"
+              metrics:
+                type: object
+                properties:
+                  interaction_rate:
+                    type: number
+                    format: float
+                    example: 0.25
+                    description: 互动率（0-1）
+                  attention_rate:
+                    type: number
+                    format: float
+                    example: 0.85
+                    description: 注意力率（0-1）
+                  engagement_score:
+                    type: number
+                    format: float
+                    example: 0.75
+                    description: 参与度评分（0-1）
+        trends:
+          type: object
+          properties:
+            interaction_rate:
+              type: string
+              enum: [increasing, decreasing, stable]
+              example: "increasing"
+            attention_rate:
+              type: string
+              enum: [increasing, decreasing, stable]
+              example: "stable"
+
+    Highlight:
+      type: object
+      properties:
+        start_time:
+          type: integer
+          example: 600
+          description: 片段开始时间（秒）
+        end_time:
+          type: integer
+          example: 900
+          description: 片段结束时间（秒）
+        score:
+          type: number
+          format: float
+          example: 0.92
+          description: 质量评分（0-1）
+        reasons:
+          type: array
+          items:
+            type: string
+          example:
+            - "互动占比高（35%）"
+            - "异常行为少（低头率<10%）"
+            - "教师引导与学生响应良好"
+        thumbnail_url:
+          type: string
+          example: "/api/v1/videos/1/frames/600"
+          description: 缩略图URL
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "请求参数错误"
+        detail:
+          type: string
+          nullable: true
+          example: "用户名已存在"
+
+
+
+
+

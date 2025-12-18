@@ -1,0 +1,52 @@
+# 项目规则文件
+
+## 环境说明
+- **操作系统**: Windows (win32)
+- **Shell**: PowerShell (C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe)
+- **工作目录**: H:\毕业设计\System\classvision-vheat
+- **Python 环境管理**: Anaconda
+- **Conda 环境名称**: vHeat
+
+## 重要提示
+- 在执行任何命令时，必须考虑 Windows 环境的特殊性
+- 路径分隔符使用反斜杠 `\` 或正斜杠 `/`（PowerShell 支持两种）
+- 注意 Windows 和 Unix 系统在命令和路径上的差异
+
+## Conda 环境规则
+- **必须使用 conda 环境**: 所有 Python 相关的操作都必须在 `vHeat` conda 环境中进行
+- **安装包时的流程**:
+  1. 首先激活 conda 环境: `conda activate vHeat`
+  2. 然后安装包到该环境:
+     - 使用 conda: `conda install <package_name>` 或 `conda install -c conda-forge <package_name>`
+     - 使用 pip: `pip install <package_name>` (在激活环境后)
+- **执行 Python 脚本前**: 必须确保已激活 `vHeat` 环境
+- **创建新终端时**: 如果需要在 conda 环境中执行命令，必须先激活环境
+
+## 开发文档指南
+
+### 文档存放位置
+项目的所有文档统一归档在项目根目录（`H:\毕业设计\System`）的 `docs/` 目录下（相对于当前目录为 `../docs/`）：
+- `../docs/backend/`: 后端开发相关文档
+- `../docs/frontend/`: 前端开发相关文档
+- `../docs/references/`: 参考资料（开题报告、数据集说明等）
+
+### 后端开发必读文档 (优先级从高到低)
+1. **`../docs/backend/BACKEND_REQUIREMENTS.md`**
+   - **类型**: 需求规格说明书
+   - **内容**: 包含详细的 API 接口定义列表、数据库 ER 图设计、核心业务流程（视频处理、分析逻辑）。
+   - **用途**: **后端编码的核心依据**，开发前务必通读。
+
+2. **`../docs/references/数据集与模型总结.md`**
+   - **类型**: 数据与模型参考
+   - **内容**: 定义了 4 类数据集的详细信息、模型的检测类别以及 **全局类别 ID 映射 (Global ID)**。
+   - **用途**: 数据库设计和模型结果处理必须严格遵守此文档中的 **类别 ID 映射**。
+
+3. **`../docs/backend/api_spec.yaml`** (或 `API接口文档.md`)
+   - **类型**: 接口规范
+   - **内容**: OpenAPI 3.0 标准的接口定义。
+   - **用途**: 查阅具体的请求/响应字段格式、参数类型。
+
+4. **`../docs/backend/开发方案.md`**
+   - **类型**: 架构设计
+   - **内容**: 系统的整体技术栈选择、分层架构设计。
+   - **用途**: 理解系统的宏观架构和技术选型理由。

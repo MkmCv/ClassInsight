@@ -1,0 +1,115 @@
+/* 全局字体与配色 */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary-color: #4F46E5; /* Indigo 600 */
+    --primary-hover: #4338CA;
+    --background-color: #F9FAFB;
+    --surface-color: #FFFFFF;
+    --text-primary: #111827;
+    --text-secondary: #6B7280;
+    --border-radius: 12px;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* 覆盖 Streamlit 默认样式 */
+.stApp {
+    background-color: var(--background-color);
+    font-family: 'Inter', sans-serif;
+}
+
+/* 侧边栏样式 */
+section[data-testid="stSidebar"] {
+    background-color: var(--surface-color);
+    border-right: 1px solid #E5E7EB;
+    box-shadow: var(--shadow-sm);
+}
+
+/* 侧边栏导航链接 - 选中状态高亮 */
+[data-testid="stSidebarNav"] a[aria-current="page"] {
+    background-color: #EEF2FF !important; /* 浅蓝背景 */
+    color: var(--primary-color) !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important; /* 放大文字 */
+    border-left: 4px solid var(--primary-color) !important;
+    padding-left: 12px !important;
+    transition: all 0.2s ease;
+}
+
+/* 侧边栏导航链接 - 默认状态 */
+[data-testid="stSidebarNav"] a {
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 4px;
+    transition: all 0.2s;
+}
+
+[data-testid="stSidebarNav"] a:hover {
+    background-color: #F3F4F6;
+    color: var(--text-primary);
+}
+
+
+/* 标题样式 */
+h1, h2, h3 {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+h1 {
+    font-size: 2.25rem;
+    background: linear-gradient(90deg, #4F46E5 0%, #EC4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding-bottom: 0.5rem;
+}
+
+/* 卡片容器样式 */
+div[data-testid="stMetric"], div[data-testid="stContainer"] {
+    background-color: var(--surface-color);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #E5E7EB;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+div[data-testid="stContainer"]:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+}
+
+/* 按钮样式 */
+button[kind="primary"] {
+    background-color: var(--primary-color);
+    border: none;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+button[kind="primary"]:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+/* 表格样式 */
+div[data-testid="stDataFrame"] {
+    border: none;
+}
+
+/* Plotly 图表背景透明 */
+.js-plotly-plot .plotly .main-svg {
+    background: transparent !important;
+}
+
+/* 登录页特定样式 */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
