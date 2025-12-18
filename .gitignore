@@ -29,6 +29,18 @@ desktop.ini
 *.log
 *.tmp
 
+# 数据集
+Model components/dataset/
+
+# 存储文件（视频、权重等大文件）
+backend/storage/videos/
+backend/storage/**/*.mp4
+backend/storage/**/*.avi
+backend/storage/**/*.mov
+*.pt
+*.pth
+*.ckpt
+
 # Conda
 .conda/
 
