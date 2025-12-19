@@ -55,8 +55,13 @@
 
 #### 2.3 上传视频
 - **接口**: `POST /videos/upload`
-- **参数**: `file`, `class_name`, `course_name`, `lesson_date`
-- **响应**: `{ "task_id": "uuid", "status": "processing" }`
+- **参数**:
+  - `file`: 视频文件
+  - `class_name`: 班级名称
+  - `course_name`: 课程名称
+  - `lesson_date`: 上课日期 (YYYY-MM-DD)
+  - `teacher_name`: 授课教师 (新增)
+- **响应**: `{ "task_id": "uuid", "status": "processing", "video_id": 1 }`
 
 #### 2.4 查询处理进度 (轮询)
 - **接口**: `GET /videos/{task_id}/status`
@@ -68,6 +73,16 @@
   "step": "正在进行目标检测..." // 当前步骤描述
 }
 ```
+
+#### 2.4.1 删除视频 ✅ 已实现
+- **接口**: `DELETE /videos/{video_id}`
+- **权限**: Owner (只能删除自己上传的) 或 Admin
+- **响应**: `204 No Content`（前端兼容 200/204）
+- **前端位置**: `pages/2_📤_视频上传.py` 第 80-97 行
+- **UI 交互**:
+  - 每行视频右侧有 🗑️ 删除按钮
+  - 点击后弹出确认对话框（防止误删）
+  - 确认后删除并自动刷新列表
 
 ---
 
@@ -117,8 +132,39 @@
 
 ---
 
+### 👤 用户管理 (User Management) (新增)
+**前端文件**: `pages/5_👤_用户管理.py`
+
+#### 2.12 获取用户列表
+- **接口**: `GET /users`
+- **权限**: Admin
+- **响应**: `[{"id": 1, "username": "...", "role": "teacher", ...}, ...]`
+
+#### 2.13 创建新用户
+- **接口**: `POST /auth/register`
+- **权限**: Admin
+- **请求**:
+```json
+{
+  "username": "teacher002",
+  "password": "secretpassword",
+  "email": "teacher2@school.edu",
+  "role": "teacher", // admin 或 teacher
+  "unit": "Math Department",
+  "class_name": "Grade 10 Class 2"
+}
+```
+- **响应**: `201 Created`
+
+#### 2.14 删除用户
+- **接口**: `DELETE /users/{user_id}`
+- **权限**: Admin
+- **响应**: `200 OK`
+
+---
+
 ## 3. 后端对接注意事项
 1. **Mock 数据**: 开发阶段可直接使用 `mock_data.py` 中的数据结构。
 2. **LLM 接入**: 后端需集成 OpenAI/LangChain 接口，并实现流式响应（StreamingResponse）。
 3. **跨域问题**: 确保 FastAPI 配置了 CORS 允许前端端口访问。
-
+4. **权限控制**: 确保所有 `/users/*` 接口验证当前用户 `role` 是否为 `admin`。

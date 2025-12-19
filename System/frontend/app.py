@@ -43,7 +43,12 @@ def api_login(username: str, password: str):
             data = response.json()
             return True, data
         else:
-            error_msg = response.json().get("detail", "登录失败")
+            # 安全地解析错误响应
+            try:
+                error_data = response.json()
+                error_msg = error_data.get("detail", "登录失败")
+            except:
+                error_msg = f"登录失败 (HTTP {response.status_code})"
             return False, error_msg
             
     except requests.exceptions.ConnectionError:

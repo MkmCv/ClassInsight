@@ -98,3 +98,4 @@ class AnalysisAnomaly(Base):
     def __repr__(self):
         return f"<AnalysisAnomaly(video_id={self.video_id}, type='{self.anomaly_type}')>"
 
+

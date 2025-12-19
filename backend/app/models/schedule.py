@@ -33,3 +33,4 @@ class Schedule(Base):
     def __repr__(self):
         return f"<Schedule(id={self.id}, course='{self.course_name}', class='{self.class_name}')>"
 
+

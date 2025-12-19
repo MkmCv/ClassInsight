@@ -255,66 +255,242 @@ with tab1:
 # ==================== Tab 2 ====================
 with tab2:
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("### 课堂状态演变趋势")
     
     if timeline_data and timeline_data.get('timeline'):
         timeline_list = timeline_data['timeline']
         
-        # 构建 DataFrame，将秒转换为 "分:秒" 格式
+        # 构建 DataFrame
         rows = []
         for item in timeline_list:
             ts = item.get('timestamp', 0)
             behaviors = item.get('behaviors', {})
-            if behaviors:  # 只添加有数据的点
-                row = {"时间(秒)": ts, "时间(分)": round(ts / 60, 2)}
+            if behaviors:
+                row = {"时间(秒)": ts, "时间(分钟)": round(ts / 60, 1)}
                 row.update(behaviors)
                 rows.append(row)
         
         if rows:
             df_timeline = pd.DataFrame(rows)
             
-            # 显示数据统计
-            st.caption(f"📊 共 {len(rows)} 个时间点，时间窗口: {timeline_data.get('window_size', 10)}秒")
+            # ==================== 1. 教学模式分析 ====================
+            st.markdown("### 📚 教学模式时间线")
+            st.caption("基于检测数据推断的教学活动类型")
             
-            all_behaviors = [col for col in df_timeline.columns if col not in ["时间(秒)", "时间(分)"]]
-            
-            if all_behaviors:
-                # 设置默认选中的行为
-                default_behaviors = [b for b in ['guide', 'teacher', 'stand', 'screen', 'blackBoard'] if b in all_behaviors]
-                if not default_behaviors:
-                    default_behaviors = all_behaviors[:min(3, len(all_behaviors))]
+            # 计算每个时间窗口的教学模式
+            def get_teaching_mode(row):
+                # 互动模式：有引导、回答或上台互动
+                interaction = row.get('guide', 0) + row.get('answer', 0) + row.get('On-stage interaction', 0)
+                # 板书模式：有板书行为
+                blackboard = row.get('blackboard-writing', 0)
+                # 多媒体模式：屏幕活跃
+                multimedia = row.get('screen', 0)
+                # 讲授模式：教师站立
+                lecture = row.get('teacher', 0) + row.get('stand', 0)
                 
-                selected = st.multiselect("选择展示行为", all_behaviors, default=default_behaviors)
-                
-                if selected:
-                    # 使用秒数作为 x 轴，更准确
-                    fig_line = px.line(df_timeline, x="时间(秒)", y=selected, markers=True, 
-                                       color_discrete_sequence=px.colors.qualitative.Bold)
-                    fig_line.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", 
-                        plot_bgcolor="rgba(0,0,0,0)", 
-                        hovermode="x unified",
-                        xaxis_title="时间（秒）",
-                        yaxis_title="检测数量"
-                    )
-                    st.plotly_chart(fig_line, use_container_width=True)
-                    
-                    st.markdown("### 课堂注意力热力图")
-                    fig_area = px.area(df_timeline, x="时间(秒)", y=all_behaviors, 
-                                       color_discrete_sequence=px.colors.qualitative.Safe)
-                    fig_area.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", 
-                        plot_bgcolor="rgba(0,0,0,0)",
-                        xaxis_title="时间（秒）",
-                        yaxis_title="检测数量"
-                    )
-                    st.plotly_chart(fig_area, use_container_width=True)
+                if interaction > 0:
+                    return "🗣️ 互动教学"
+                elif blackboard > 0:
+                    return "✏️ 板书讲解"
+                elif multimedia > 0:
+                    return "🖥️ 多媒体演示"
+                elif lecture > 0:
+                    return "👨‍🏫 讲授模式"
                 else:
-                    st.info("请选择至少一个行为进行展示")
-            else:
-                st.warning("⚠️ 时间线数据中没有检测到任何行为")
+                    return "⏸️ 其他"
+            
+            df_timeline['教学模式'] = df_timeline.apply(get_teaching_mode, axis=1)
+            
+            # 创建教学模式时间线（甘特图风格）
+            mode_colors = {
+                "🗣️ 互动教学": "#10B981",    # 绿色 - 最佳
+                "✏️ 板书讲解": "#3B82F6",    # 蓝色
+                "🖥️ 多媒体演示": "#8B5CF6",  # 紫色
+                "👨‍🏫 讲授模式": "#F59E0B",    # 橙色
+                "⏸️ 其他": "#9CA3AF"         # 灰色
+            }
+            
+            fig_mode = px.scatter(
+                df_timeline, 
+                x="时间(分钟)", 
+                y="教学模式",
+                color="教学模式",
+                color_discrete_map=mode_colors,
+                size_max=15
+            )
+            fig_mode.update_traces(marker=dict(size=12, symbol='square'))
+            fig_mode.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", 
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis_title="时间（分钟）",
+                yaxis_title="",
+                showlegend=True,
+                height=250
+            )
+            st.plotly_chart(fig_mode, use_container_width=True)
+            
+            # 教学模式占比统计
+            mode_counts = df_timeline['教学模式'].value_counts()
+            col_mode1, col_mode2 = st.columns([1, 2])
+            with col_mode1:
+                st.markdown("**模式占比**")
+                for mode, count in mode_counts.items():
+                    pct = count / len(df_timeline) * 100
+                    st.write(f"{mode}: {pct:.1f}%")
+            with col_mode2:
+                fig_mode_pie = px.pie(
+                    values=mode_counts.values, 
+                    names=mode_counts.index,
+                    color=mode_counts.index,
+                    color_discrete_map=mode_colors,
+                    hole=0.4
+                )
+                fig_mode_pie.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    showlegend=False,
+                    height=200,
+                    margin=dict(t=0, b=0, l=0, r=0)
+                )
+                st.plotly_chart(fig_mode_pie, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # ==================== 2. 互动强度曲线 ====================
+            st.markdown("### 📈 课堂互动强度")
+            st.caption("基于引导、回答、上台互动行为计算的互动指数")
+            
+            # 计算互动强度（0-100）
+            def calc_interaction_score(row):
+                guide = row.get('guide', 0) * 30       # 引导权重高
+                answer = row.get('answer', 0) * 25     # 回答权重
+                onstage = row.get('On-stage interaction', 0) * 45  # 上台互动权重最高
+                score = min(100, guide + answer + onstage)
+                return score
+            
+            df_timeline['互动指数'] = df_timeline.apply(calc_interaction_score, axis=1)
+            
+            # 计算教学丰富度（使用了多少种教学方式）
+            def calc_richness(row):
+                methods = 0
+                if row.get('teacher', 0) > 0 or row.get('stand', 0) > 0: methods += 1
+                if row.get('blackboard-writing', 0) > 0: methods += 1
+                if row.get('screen', 0) > 0: methods += 1
+                if row.get('guide', 0) > 0 or row.get('answer', 0) > 0: methods += 1
+                return methods * 25  # 最高100
+            
+            df_timeline['教学丰富度'] = df_timeline.apply(calc_richness, axis=1)
+            
+            fig_interaction = go.Figure()
+            
+            # 互动指数曲线
+            fig_interaction.add_trace(go.Scatter(
+                x=df_timeline['时间(分钟)'],
+                y=df_timeline['互动指数'],
+                mode='lines+markers',
+                name='互动指数',
+                line=dict(color='#10B981', width=2),
+                fill='tozeroy',
+                fillcolor='rgba(16, 185, 129, 0.2)'
+            ))
+            
+            # 教学丰富度曲线
+            fig_interaction.add_trace(go.Scatter(
+                x=df_timeline['时间(分钟)'],
+                y=df_timeline['教学丰富度'],
+                mode='lines',
+                name='教学丰富度',
+                line=dict(color='#8B5CF6', width=2, dash='dot')
+            ))
+            
+            fig_interaction.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                xaxis_title="时间（分钟）",
+                yaxis_title="指数（0-100）",
+                yaxis=dict(range=[0, 105]),
+                hovermode="x unified",
+                legend=dict(orientation="h", yanchor="bottom", y=1.02),
+                height=300
+            )
+            st.plotly_chart(fig_interaction, use_container_width=True)
+            
+            # 关键指标卡片
+            avg_interaction = df_timeline['互动指数'].mean()
+            max_interaction = df_timeline['互动指数'].max()
+            low_interaction_pct = (df_timeline['互动指数'] < 10).sum() / len(df_timeline) * 100
+            
+            metric_col1, metric_col2, metric_col3 = st.columns(3)
+            with metric_col1:
+                st.metric("平均互动指数", f"{avg_interaction:.1f}", 
+                         delta="良好" if avg_interaction > 30 else "需提升")
+            with metric_col2:
+                st.metric("峰值互动", f"{max_interaction:.0f}")
+            with metric_col3:
+                st.metric("低互动时段占比", f"{low_interaction_pct:.1f}%",
+                         delta="正常" if low_interaction_pct < 50 else "偏高", delta_color="inverse")
+            
+            st.markdown("---")
+            
+            # ==================== 3. 教学行为热力图（真正的热力图）====================
+            st.markdown("### 🔥 教学行为热力图")
+            st.caption("颜色越深表示该时段该行为出现频率越高")
+            
+            # 选择要显示的行为
+            behavior_cols = [col for col in df_timeline.columns 
+                           if col not in ['时间(秒)', '时间(分钟)', '教学模式', '互动指数', '教学丰富度']]
+            
+            if behavior_cols:
+                # 构建热力图数据
+                heatmap_data = df_timeline[behavior_cols].T
+                heatmap_data.columns = [f"{int(t//60)}:{int(t%60):02d}" for t in df_timeline['时间(秒)']]
+                
+                # 每隔几列取一个标签，避免太密
+                step = max(1, len(heatmap_data.columns) // 15)
+                x_labels = [heatmap_data.columns[i] if i % step == 0 else "" 
+                           for i in range(len(heatmap_data.columns))]
+                
+                fig_heatmap = px.imshow(
+                    heatmap_data.values,
+                    x=list(range(len(heatmap_data.columns))),
+                    y=heatmap_data.index,
+                    color_continuous_scale='YlOrRd',
+                    aspect='auto'
+                )
+                fig_heatmap.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    xaxis_title="时间",
+                    yaxis_title="行为类别",
+                    xaxis=dict(
+                        tickmode='array',
+                        tickvals=list(range(0, len(x_labels), step)),
+                        ticktext=[x_labels[i] for i in range(0, len(x_labels), step)]
+                    ),
+                    height=350
+                )
+                fig_heatmap.update_coloraxes(colorbar_title="检测次数")
+                st.plotly_chart(fig_heatmap, use_container_width=True)
+            
+            # ==================== 4. 原始数据折线图（可折叠）====================
+            with st.expander("📊 查看原始检测数据"):
+                selected = st.multiselect(
+                    "选择展示的行为类别", 
+                    behavior_cols, 
+                    default=behavior_cols[:min(4, len(behavior_cols))]
+                )
+                if selected:
+                    fig_raw = px.line(
+                        df_timeline, x="时间(分钟)", y=selected, markers=True,
+                        color_discrete_sequence=px.colors.qualitative.Bold
+                    )
+                    fig_raw.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis_title="时间（分钟）",
+                        yaxis_title="检测数量",
+                        hovermode="x unified"
+                    )
+                    st.plotly_chart(fig_raw, use_container_width=True)
         else:
-            st.warning("⚠️ 时间线数据为空，可能视频中没有检测到目标行为")
+            st.warning("⚠️ 时间线数据为空")
     else:
         st.info("暂无时间线数据，请等待视频分析完成。")
 

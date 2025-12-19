@@ -75,3 +75,4 @@ class VideoUploadResponse(BaseModel):
     status: str = "processing"
     message: str = "视频已上传，正在处理中"
 
+

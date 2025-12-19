@@ -74,3 +74,4 @@ class CompareResponse(BaseModel):
     comparison: List[CompareItem]
     trends: CompareTrends
 
+

@@ -287,3 +287,4 @@ class MultiModelDetector:
             "weights_dir": str(self.weights_dir)
         }
 
+

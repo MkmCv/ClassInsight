@@ -13,6 +13,30 @@ MOCK_USER = {
     "created_at": "2025-10-23T10:00:00Z"
 }
 
+MOCK_ADMIN = {
+    "id": 0,
+    "username": "admin",
+    "email": "admin@example.com",
+    "role": "admin",
+    "unit": "系统管理员",
+    "class_name": "",
+    "created_at": "2025-01-01T00:00:00Z"
+}
+
+MOCK_USERS_LIST = [
+    MOCK_ADMIN,
+    MOCK_USER,
+    {
+        "id": 2,
+        "username": "teacher002",
+        "email": "teacher2@example.com",
+        "role": "teacher",
+        "unit": "岭南师范学院",
+        "class_name": "高一(2)班",
+        "created_at": "2025-10-25T10:00:00Z"
+    }
+]
+
 # ==================== 模拟视频列表 ====================
 MOCK_VIDEOS = [
     {
@@ -90,6 +114,30 @@ def get_mock_timeline(video_id, window=60):
         base_discuss = 5 + np.sin(i/5) * 3
         base_read = 15 + np.cos(i/8) * 5
         
+        # 模拟教师行为模式切换
+        mode_prob = np.random.rand()
+        guide = 0
+        answer = 0
+        onstage = 0
+        blackboard = 0
+        screen = 0
+        teacher = 0
+        stand = 0
+
+        if mode_prob < 0.3: # 互动模式
+            guide = int(max(0, 5 + np.random.randint(-2, 3)))
+            answer = int(max(0, 3 + np.random.randint(-1, 2)))
+            onstage = int(max(0, np.random.randint(0, 2)))
+        elif mode_prob < 0.5: # 板书模式
+            blackboard = int(max(0, 1 + np.random.randint(0, 2)))
+            teacher = 1
+        elif mode_prob < 0.7: # 多媒体模式
+            screen = 1
+            teacher = 0
+        else: # 讲授模式
+            teacher = 1
+            stand = 1
+        
         entry = {
             "timestamp": timestamp,
             "behaviors": {
@@ -98,7 +146,15 @@ def get_mock_timeline(video_id, window=60):
                 "read": int(max(0, base_read + np.random.randint(-3, 4))),
                 "write": int(max(0, 10 + np.random.randint(-2, 3))),
                 "BowHead": int(max(0, 5 + np.random.randint(-2, 5))), # 偶尔有异常高值
-                "TurnHead": int(max(0, 2 + np.random.randint(-1, 2)))
+                "TurnHead": int(max(0, 2 + np.random.randint(-1, 2))),
+                # 新增教师和场景行为
+                "guide": guide,
+                "answer": answer,
+                "On-stage interaction": onstage,
+                "blackboard-writing": blackboard,
+                "screen": screen,
+                "teacher": teacher,
+                "stand": stand
             }
         }
         data.append(entry)
@@ -184,6 +240,7 @@ def get_mock_highlights(video_id):
             }
         ]
     }
+
 
 
 
