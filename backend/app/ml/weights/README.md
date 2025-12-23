@@ -40,3 +40,6 @@ yolo-vheat/runs/train/<experiment_name>/weights/best.pt
 | student_posture | 2,410 张 | ~0.72 |
 
 
+
+
+

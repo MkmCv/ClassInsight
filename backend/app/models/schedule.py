@@ -34,3 +34,6 @@ class Schedule(Base):
         return f"<Schedule(id={self.id}, course='{self.course_name}', class='{self.class_name}')>"
 
 
+
+
+

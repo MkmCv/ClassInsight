@@ -99,3 +99,6 @@ class AnalysisAnomaly(Base):
         return f"<AnalysisAnomaly(video_id={self.video_id}, type='{self.anomaly_type}')>"
 
 
+
+
+

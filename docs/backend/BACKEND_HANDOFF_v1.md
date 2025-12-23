@@ -228,19 +228,65 @@ role = "admin"
 
 ---
 
-## 7. 待实现功能
+## 7. AI 教学顾问 Agent ✅ 已实现
+
+### 7.1 技术架构
+
+| 组件 | 技术 | 说明 |
+|------|------|------|
+| 工作流引擎 | LangGraph | 状态机管理对话流程 |
+| 大语言模型 | 通义千问 (qwen-plus) | 阿里云 DashScope API |
+| 数据工具 | 自定义 Tools | 从数据库获取分析数据 |
+
+### 7.2 API 接口
+
+| 接口 | 方法 | 路径 | 说明 |
+|------|------|------|------|
+| 对话 | POST | `/api/v1/agent/chat` | 与 AI 顾问对话 |
+| 流式对话 | POST | `/api/v1/agent/chat/stream` | SSE 流式输出 |
+| 获取上下文 | GET | `/api/v1/agent/context/{video_id}` | 调试用 |
+
+### 7.3 文件结构
+
+```
+backend/app/agent/
+├── __init__.py      # 模块导出
+├── state.py         # Agent 状态定义
+├── prompts.py       # System Prompt 模板
+├── tools.py         # 数据获取工具
+└── graph.py         # LangGraph 工作流
+```
+
+### 7.4 环境变量配置
+
+在 `backend/` 目录创建 `.env` 文件：
+
+```bash
+# 通义千问 API Key
+DASHSCOPE_API_KEY=sk-your-api-key-here
+```
+
+### 7.5 依赖安装
+
+```bash
+pip install langgraph langchain-core dashscope
+```
+
+---
+
+## 8. 待实现功能
 
 | 功能 | 优先级 | 状态 |
 |------|--------|------|
 | 课程表 CRUD API | 中 | ⏳ 待实现 |
 | 归因分析真实计算 | 低 | ⏳ 返回模拟数据 |
 | 精彩片段识别 | 低 | ⏳ 返回模拟数据 |
-| AI Agent 接入 | 中 | ⏳ 待设计 |
+| ~~AI Agent 接入~~ | ~~中~~ | ✅ 已实现 |
 | PDF 报告导出 | 低 | ⏳ 待实现 |
 
 ---
 
-## 8. 文档索引
+## 9. 文档索引
 
 | 文档 | 路径 | 说明 |
 |------|------|------|
@@ -252,7 +298,7 @@ role = "admin"
 
 ---
 
-## 9. 检查工具
+## 10. 检查工具
 
 ### 查看分析数据
 ```powershell

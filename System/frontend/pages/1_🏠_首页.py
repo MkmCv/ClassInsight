@@ -160,8 +160,8 @@ with c1:
                     <div style="font-weight: 600; font-size: 1.1rem; margin: 4px 0; color: #374151;">{course.get('subject', '--')}</div>
                     <div style="font-size: 0.9rem; color: #4B5563;">📍 {course.get('class', '--')}</div>
                     <div style="margin-top: 8px;"><span style="background-color: {status_bg}; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; color: {status_text};">{status_label}</span></div>
-                </div>
-                """, unsafe_allow_html=True)
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.info("📭 今日暂无课程安排")
 

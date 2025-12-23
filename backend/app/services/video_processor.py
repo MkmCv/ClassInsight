@@ -320,3 +320,6 @@ def detect_anomalies(window_data: Dict, window_size: int, duration: float) -> Li
     return anomalies
 
 
+
+
+

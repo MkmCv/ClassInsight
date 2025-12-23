@@ -1,0 +1,27 @@
+运行以下命令：
+cd "H:\毕业设计\System\backend"python visualize_detection.py
+📋 脚本使用说明
+基本用法
+# 列出所有可用视频python visualize_detection.py --list# 处理第1个视频（默认跳5帧）python visualize_detection.py 1# 处理指定视频，跳3帧（更流畅但更慢）python visualize_detection.py 1 --skip 3# 只处理前500帧（快速预览）python visualize_detection.py 1 --max-frames 500# 实时预览（需要显示器）python visualize_detection.py 1 --preview
+参数说明
+参数	说明	默认值
+--skip / -s	跳帧数（每N帧检测一次）	5
+--max-frames / -m	最大处理帧数	全部
+--confidence / -c	置信度阈值	0.3
+--preview / -p	显示实时预览窗口	否
+--output / -o	指定输出路径	自动生成
+输出位置
+H:\毕业设计\System\backend\storage\visualization\└── detection_视频名_时间戳.mp4
+可视化效果
+生成的视频会包含：
+检测框：不同颜色标识不同行为类型
+标签：显示类别名称和置信度
+信息面板：顶部显示帧号、时间、进度、检测统计
+进度条：直观显示处理进度
+颜色编码
+行为类型	颜色
+低头/转头	🔴 红色系
+举手/阅读/书写	🟢 绿色系
+讨论	🟡 黄色
+教师/引导	🔵 蓝色系
+上台互动	🟣 紫色

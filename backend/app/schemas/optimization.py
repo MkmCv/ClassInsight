@@ -75,3 +75,6 @@ class CompareResponse(BaseModel):
     trends: CompareTrends
 
 
+
+
+

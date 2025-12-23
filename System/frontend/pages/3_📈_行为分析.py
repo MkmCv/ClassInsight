@@ -412,7 +412,7 @@ with tab2:
                 height=300
             )
             st.plotly_chart(fig_interaction, use_container_width=True)
-            
+    
             # 关键指标卡片
             avg_interaction = df_timeline['互动指数'].mean()
             max_interaction = df_timeline['互动指数'].max()
@@ -510,16 +510,16 @@ with tab3:
                 severity = anomaly.get('severity', 'medium')
                 
                 color = "#EF4444" if severity == "high" else "#F59E0B" if severity == "medium" else "#3B82F6"
-                
+            
                 st.markdown(f"""
-                <div style="border-left: 4px solid {color}; padding-left: 12px; margin-bottom: 16px; background-color: #FFFFFF; padding: 16px; border-radius: 0 8px 8px 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+            <div style="border-left: 4px solid {color}; padding-left: 12px; margin-bottom: 16px; background-color: #FFFFFF; padding: 16px; border-radius: 0 8px 8px 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                     <div style="font-weight: 600; font-size: 1.1rem; color: #111827;">{anomaly.get('description', '未知异常')}</div>
-                    <div style="color: #6B7280; font-size: 0.9rem; margin-top: 4px;">
+                <div style="color: #6B7280; font-size: 0.9rem; margin-top: 4px;">
                         <span style="background-color: {color}20; color: {color}; padding: 2px 8px; border-radius: 4px; font-weight: 500;">{severity.upper()}</span>
-                        &nbsp; • &nbsp; {start}分 - {end}分
-                    </div>
+                    &nbsp; • &nbsp; {start}分 - {end}分
                 </div>
-                """, unsafe_allow_html=True)
+            </div>
+            """, unsafe_allow_html=True)
         else:
             st.success("✅ 未检测到明显异常，课堂状态良好！")
             
@@ -563,12 +563,12 @@ with tab3:
         else:
             # 默认显示示例
             st.info("💡 **AI 洞察**：数据收集中，完成更多课程分析后将展示行为关联性。")
-            
-            mock_corr = pd.DataFrame(
-                [[1.0, 0.75, -0.2], [0.75, 1.0, -0.1], [-0.2, -0.1, 1.0]],
-                columns=['引导', '讨论', '低头'],
-                index=['引导', '讨论', '低头']
-            )
-            fig_corr = px.imshow(mock_corr, text_auto=True, color_continuous_scale='RdBu_r', aspect="auto")
-            fig_corr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_corr, use_container_width=True)
+        
+        mock_corr = pd.DataFrame(
+            [[1.0, 0.75, -0.2], [0.75, 1.0, -0.1], [-0.2, -0.1, 1.0]],
+            columns=['引导', '讨论', '低头'],
+            index=['引导', '讨论', '低头']
+        )
+        fig_corr = px.imshow(mock_corr, text_auto=True, color_continuous_scale='RdBu_r', aspect="auto")
+        fig_corr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_corr, use_container_width=True)
