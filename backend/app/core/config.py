@@ -46,6 +46,22 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
     ]
     
+    # 邮件配置（用于忘记密码）
+    SMTP_HOST: str = "smtp.qq.com"  # QQ邮箱SMTP服务器
+    SMTP_PORT: int = 465
+    SMTP_USER: str = "2013119322@qq.com"  # 发件邮箱
+    SMTP_PASSWORD: str = "ohwrvzktdcjfdjfa"  # 邮箱授权码
+    SMTP_FROM_NAME: str = "ClassInsight"
+    SMTP_USE_SSL: bool = True
+    
+    # 验证码配置
+    VERIFICATION_CODE_EXPIRE_MINUTES: int = 10  # 验证码10分钟过期
+    
+    # 登录安全配置
+    MAX_LOGIN_ATTEMPTS: int = 5  # 最大登录失败次数
+    LOGIN_LOCKOUT_MINUTES: int = 15  # 锁定时间（分钟）
+    CAPTCHA_REQUIRED_AFTER: int = 3  # 失败几次后需要验证码
+    
     class Config:
         env_file = ".env"
         case_sensitive = True

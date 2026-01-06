@@ -8,7 +8,7 @@ import os
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css
+from utils import load_css, render_sidebar
 
 st.set_page_config(page_title="行为分析 - ClassInsight", page_icon="📈", layout="wide")
 
@@ -17,6 +17,9 @@ load_css()
 if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
     st.warning("请先登录")
     st.switch_page("app.py")
+
+# 渲染侧边栏（用户信息 + 退出登录）
+render_sidebar()
 
 # ==================== API 配置 ====================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -30,12 +33,14 @@ def get_api_headers():
     return headers
 
 
-def fetch_video_list():
-    """获取视频列表"""
+@st.cache_data(ttl=30, show_spinner=False)
+def fetch_video_list(_headers_tuple):
+    """获取视频列表（缓存30秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/videos",
-            headers=get_api_headers(),
+            headers=headers,
             params={"page": 1, "page_size": 50, "status": "completed"},
             timeout=5
         )
@@ -46,12 +51,14 @@ def fetch_video_list():
         return []
 
 
-def fetch_behavior_summary(video_id):
-    """获取行为汇总数据"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_behavior_summary(_headers_tuple, video_id):
+    """获取行为汇总数据（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/analysis/{video_id}/summary",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -61,12 +68,14 @@ def fetch_behavior_summary(video_id):
         return None
 
 
-def fetch_behavior_timeline(video_id):
-    """获取行为时间线数据"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_behavior_timeline(_headers_tuple, video_id):
+    """获取行为时间线数据（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/analysis/{video_id}/timeline",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -76,12 +85,14 @@ def fetch_behavior_timeline(video_id):
         return None
 
 
-def fetch_anomalies(video_id):
-    """获取异常检测数据"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_anomalies(_headers_tuple, video_id):
+    """获取异常检测数据（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/analysis/{video_id}/anomalies",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -91,12 +102,14 @@ def fetch_anomalies(video_id):
         return None
 
 
-def fetch_causation(video_id):
-    """获取归因分析数据"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_causation(_headers_tuple, video_id):
+    """获取归因分析数据（真实相关性分析，缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/analysis/{video_id}/causation",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -106,33 +119,130 @@ def fetch_causation(video_id):
         return None
 
 
-# 获取视频列表
-videos = fetch_video_list()
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_teaching_modes(_headers_tuple, video_id):
+    """获取教学模式分析数据（缓存60秒）"""
+    try:
+        headers = dict(_headers_tuple)
+        response = requests.get(
+            f"{API_BASE_URL}/analysis/{video_id}/teaching-modes",
+            headers=headers,
+            timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            return data
+        elif response.status_code == 404:
+            # 视频不存在或分析未完成
+            return None
+        else:
+            # 其他错误
+            return None
+    except requests.exceptions.RequestException as e:
+        # 网络错误
+        return None
+    except Exception as e:
+        # 其他异常
+        return None
+
+
+# 获取视频列表（使用缓存）
+headers_tuple = tuple(sorted(get_api_headers().items()))
+videos = fetch_video_list(headers_tuple)
 
 # 侧边栏
 with st.sidebar:
     st.markdown("### 🔍 筛选条件")
     
     if videos:
-        video_options = {v['video_id']: f"{v.get('lesson_date', 'N/A')} {v.get('course_name', '-')} ({v.get('class_name', '-')})" for v in videos}
+        # 提取所有可用的筛选选项
+        all_courses = sorted(set([v.get('course_name', '') for v in videos if v.get('course_name')]))
+        all_classes = sorted(set([v.get('class_name', '') for v in videos if v.get('class_name')]))
+        all_dates = sorted(set([v.get('lesson_date', '') for v in videos if v.get('lesson_date')]), reverse=True)
         
-        # 如果有当前视频ID，默认选中
-        default_idx = 0
-        if 'current_video_id' in st.session_state:
-            try:
-                video_ids = list(video_options.keys())
-                if st.session_state['current_video_id'] in video_ids:
-                    default_idx = video_ids.index(st.session_state['current_video_id'])
-            except:
-                pass
-        
-        selected_video_id = st.selectbox(
-            "选择课堂记录",
-            options=list(video_options.keys()),
-            format_func=lambda x: video_options[x],
-            index=default_idx
+        # 筛选条件
+        st.markdown("#### 📅 按日期筛选")
+        selected_date = st.selectbox(
+            "选择日期",
+            options=["全部"] + all_dates,
+            key="filter_date",
+            help="选择特定日期查看该日期的视频"
         )
-        st.caption("选择不同的课堂记录以查看详细分析。")
+        
+        st.markdown("#### 📚 按课程筛选")
+        selected_course = st.selectbox(
+            "选择课程",
+            options=["全部"] + all_courses,
+            key="filter_course",
+            help="选择特定课程查看该课程的视频"
+        )
+        
+        st.markdown("#### 🏫 按班级筛选")
+        selected_class = st.selectbox(
+            "选择班级",
+            options=["全部"] + all_classes,
+            key="filter_class",
+            help="选择特定班级查看该班级的视频"
+        )
+        
+        # 应用筛选条件
+        filtered_videos = videos
+        if selected_date != "全部":
+            filtered_videos = [v for v in filtered_videos if v.get('lesson_date') == selected_date]
+        if selected_course != "全部":
+            filtered_videos = [v for v in filtered_videos if v.get('course_name') == selected_course]
+        if selected_class != "全部":
+            filtered_videos = [v for v in filtered_videos if v.get('class_name') == selected_class]
+        
+        # 重置筛选按钮
+        if selected_date != "全部" or selected_course != "全部" or selected_class != "全部":
+            if st.button("🔄 重置筛选", key="reset_filters", use_container_width=True):
+                st.session_state['filter_date'] = "全部"
+                st.session_state['filter_course'] = "全部"
+                st.session_state['filter_class'] = "全部"
+                st.rerun()
+        
+        st.markdown("---")
+        
+        # 视频选择
+        st.markdown("#### 🎬 选择课堂记录")
+        
+        if filtered_videos:
+            video_options = {v['video_id']: f"{v.get('lesson_date', 'N/A')} {v.get('course_name', '-')} ({v.get('class_name', '-')})" for v in filtered_videos}
+            
+            # 如果有当前视频ID，默认选中
+            default_idx = 0
+            if 'current_video_id' in st.session_state and st.session_state['current_video_id']:
+                try:
+                    video_ids = list(video_options.keys())
+                    if st.session_state['current_video_id'] in video_ids:
+                        default_idx = video_ids.index(st.session_state['current_video_id'])
+                        # 显示提示信息
+                        st.success(f"✅ 已选择视频 ID: {st.session_state['current_video_id']}")
+                except:
+                    pass
+            
+            selected_video_id = st.selectbox(
+                "选择视频",
+                options=list(video_options.keys()),
+                format_func=lambda x: video_options[x],
+                index=default_idx,
+                key="video_selector"
+            )
+            
+            # 更新 session_state 中的当前视频ID
+            if selected_video_id:
+                st.session_state['current_video_id'] = selected_video_id
+            
+            # 显示筛选结果统计
+            if len(filtered_videos) < len(videos):
+                st.caption(f"📊 筛选结果: {len(filtered_videos)}/{len(videos)} 个视频")
+            else:
+                st.caption("选择不同的课堂记录以查看详细分析。")
+        else:
+            st.warning("⚠️ 没有符合条件的视频")
+            st.caption("请调整筛选条件或上传新视频")
+            selected_video_id = None
     else:
         st.warning("暂无已完成分析的视频")
         st.caption("请先上传并分析视频")
@@ -147,11 +257,13 @@ if selected_video_id is None:
     
     st.stop()
 
-# 获取数据
-summary_data = fetch_behavior_summary(selected_video_id)
-timeline_data = fetch_behavior_timeline(selected_video_id)
-anomalies_data = fetch_anomalies(selected_video_id)
-causation_data = fetch_causation(selected_video_id)
+# 获取数据（使用缓存，显示加载状态）
+with st.spinner("📊 正在加载分析数据..."):
+    summary_data = fetch_behavior_summary(headers_tuple, selected_video_id)
+    timeline_data = fetch_behavior_timeline(headers_tuple, selected_video_id)
+    anomalies_data = fetch_anomalies(headers_tuple, selected_video_id)
+    causation_data = fetch_causation(headers_tuple, selected_video_id)
+    teaching_modes_data = fetch_teaching_modes(headers_tuple, selected_video_id)
 
 # 获取视频信息
 video_info = next((v for v in videos if v['video_id'] == selected_video_id), {})
@@ -166,7 +278,7 @@ if summary_data is None:
     st.stop()
 
 # Tab 布局
-tab1, tab2, tab3 = st.tabs(["📊 整课概览", "📉 时间趋势", "⚠️ 异常诊断"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 整课概览", "📉 时间趋势", "⚠️ 异常诊断", "🎓 教学模式"])
 
 # ==================== Tab 1 ====================
 with tab1:
@@ -177,11 +289,15 @@ with tab1:
     teacher_behavior = summary_data.get('teacher_behavior', {})
     metrics = summary_data.get('metrics', {})
     
-    # 关键指标
+    # 关键指标（兼容分类后的行为数据）
     c1, c2, c3, c4 = st.columns(4)
     
-    discuss_data = behavior_summary.get('discuss', {'total_duration': 0, 'count': 0, 'percentage': 0})
-    handraising_data = behavior_summary.get('hand-raising', {'total_duration': 0, 'count': 0, 'percentage': 0})
+    # 兼容处理：优先使用分类后的数据，否则使用原始数据
+    # 讨论/互动：分类后为"讨论"，原始为"discuss"
+    discuss_data = behavior_summary.get('讨论', behavior_summary.get('discuss', {'total_duration': 0, 'count': 0, 'percentage': 0}))
+    # 举手：分类后为"学生举手"，原始为"hand-raising"
+    handraising_data = behavior_summary.get('学生举手', behavior_summary.get('hand-raising', {'total_duration': 0, 'count': 0, 'percentage': 0}))
+    # 低头：原始为"BowHead"（分类后可能包含在"其它"中，暂时使用原始数据）
     bowhead_data = behavior_summary.get('BowHead', {'total_duration': 0, 'count': 0, 'percentage': 0})
     
     with c1:
@@ -203,9 +319,19 @@ with tab1:
     with col1:
         st.markdown("### 学生行为分布")
         
-        # 过滤学生行为
-        student_behavior_keys = ['discuss', 'hand-raising', 'read', 'write', 'BowHead', 'TurnHead', 'stand', 'answer', 'On-stage interaction']
-        student_behaviors = {k: v for k, v in behavior_summary.items() if k in student_behavior_keys}
+        # 使用分类后的学生行为数据（如果API返回的是分类后的数据，直接使用；否则使用原始数据）
+        # 分类后的学生行为类别：读写、台上展示、学生板书、回答问题、朗读、讨论、听讲、学生举手、其它
+        student_behavior_categories = ['读写', '台上展示', '学生板书', '回答问题', '朗读', '讨论', '听讲', '学生举手', '其它']
+        
+        # 检查是否有分类后的数据（中文类别名）
+        student_behaviors = {}
+        if any(k in student_behavior_categories for k in behavior_summary.keys()):
+            # 使用分类后的数据
+            student_behaviors = {k: v for k, v in behavior_summary.items() if k in student_behavior_categories}
+        else:
+            # 向后兼容：使用原始数据
+            student_behavior_keys = ['discuss', 'hand-raising', 'read', 'write', 'BowHead', 'TurnHead', 'stand', 'answer', 'On-stage interaction']
+            student_behaviors = {k: v for k, v in behavior_summary.items() if k in student_behavior_keys}
         
         if student_behaviors:
             df_student = pd.DataFrame([
@@ -227,13 +353,22 @@ with tab1:
     with col2:
         st.markdown("### 教师行为分布")
         
-        # 过滤教师行为
-        teacher_behavior_keys = ['teacher', 'guide', 'blackboard-writing']
-        teacher_behaviors = {k: v for k, v in behavior_summary.items() if k in teacher_behavior_keys}
+        # 使用分类后的教师行为数据
+        # 分类后的教师行为类别：讲授、指导、应答、台上互动、教师板书、巡视、其它
+        teacher_behavior_categories = ['讲授', '指导', '应答', '台上互动', '教师板书', '巡视', '其它']
         
-        # 也可以从 teacher_behavior 字段获取
+        # 优先使用 teacher_behavior 字段（如果存在）
         if teacher_behavior:
             teacher_behaviors = teacher_behavior
+        else:
+            # 检查是否有分类后的数据（中文类别名）
+            if any(k in teacher_behavior_categories for k in behavior_summary.keys()):
+                # 使用分类后的数据
+                teacher_behaviors = {k: v for k, v in behavior_summary.items() if k in teacher_behavior_categories}
+            else:
+                # 向后兼容：使用原始数据
+                teacher_behavior_keys = ['teacher', 'guide', 'blackboard-writing', 'answer', 'On-stage interaction']
+                teacher_behaviors = {k: v for k, v in behavior_summary.items() if k in teacher_behavior_keys}
         
         if teacher_behaviors:
             df_teacher = pd.DataFrame([
@@ -276,16 +411,20 @@ with tab2:
             st.markdown("### 📚 教学模式时间线")
             st.caption("基于检测数据推断的教学活动类型")
             
-            # 计算每个时间窗口的教学模式
+            # 计算每个时间窗口的教学模式（兼容分类后的行为数据）
             def get_teaching_mode(row):
-                # 互动模式：有引导、回答或上台互动
-                interaction = row.get('guide', 0) + row.get('answer', 0) + row.get('On-stage interaction', 0)
-                # 板书模式：有板书行为
-                blackboard = row.get('blackboard-writing', 0)
-                # 多媒体模式：屏幕活跃
+                # 兼容处理：检查是否有分类后的行为数据
+                # 互动模式：分类后为"指导"、"应答"、"台上互动"，原始为"guide"、"answer"、"On-stage interaction"
+                interaction = (
+                    row.get('指导', 0) + row.get('应答', 0) + row.get('台上互动', 0) +  # 分类后的数据
+                    row.get('guide', 0) + row.get('answer', 0) + row.get('On-stage interaction', 0)  # 原始数据
+                )
+                # 板书模式：分类后为"教师板书"，原始为"blackboard-writing"
+                blackboard = row.get('教师板书', 0) + row.get('blackboard-writing', 0)
+                # 多媒体模式：屏幕活跃（暂时没有分类后的对应）
                 multimedia = row.get('screen', 0)
-                # 讲授模式：教师站立
-                lecture = row.get('teacher', 0) + row.get('stand', 0)
+                # 讲授模式：分类后为"讲授"，原始为"teacher"+"stand"
+                lecture = row.get('讲授', 0) + row.get('teacher', 0) + row.get('stand', 0)
                 
                 if interaction > 0:
                     return "🗣️ 互动教学"
@@ -358,23 +497,33 @@ with tab2:
             st.markdown("### 📈 课堂互动强度")
             st.caption("基于引导、回答、上台互动行为计算的互动指数")
             
-            # 计算互动强度（0-100）
+            # 计算互动强度（0-100，兼容分类后的行为数据）
             def calc_interaction_score(row):
-                guide = row.get('guide', 0) * 30       # 引导权重高
-                answer = row.get('answer', 0) * 25     # 回答权重
-                onstage = row.get('On-stage interaction', 0) * 45  # 上台互动权重最高
+                # 兼容处理：分类后的"指导"、"应答"、"台上互动"
+                guide = (row.get('指导', 0) + row.get('guide', 0)) * 30       # 引导权重高
+                answer = (row.get('应答', 0) + row.get('answer', 0)) * 25     # 回答权重
+                onstage = (row.get('台上互动', 0) + row.get('On-stage interaction', 0)) * 45  # 上台互动权重最高
                 score = min(100, guide + answer + onstage)
                 return score
             
             df_timeline['互动指数'] = df_timeline.apply(calc_interaction_score, axis=1)
             
-            # 计算教学丰富度（使用了多少种教学方式）
+            # 计算教学丰富度（使用了多少种教学方式，兼容分类后的行为数据）
             def calc_richness(row):
                 methods = 0
-                if row.get('teacher', 0) > 0 or row.get('stand', 0) > 0: methods += 1
-                if row.get('blackboard-writing', 0) > 0: methods += 1
-                if row.get('screen', 0) > 0: methods += 1
-                if row.get('guide', 0) > 0 or row.get('answer', 0) > 0: methods += 1
+                # 讲授模式：分类后为"讲授"，原始为"teacher"+"stand"
+                if row.get('讲授', 0) > 0 or row.get('teacher', 0) > 0 or row.get('stand', 0) > 0: 
+                    methods += 1
+                # 板书：分类后为"教师板书"，原始为"blackboard-writing"
+                if row.get('教师板书', 0) > 0 or row.get('blackboard-writing', 0) > 0: 
+                    methods += 1
+                # 多媒体：暂时没有分类后的对应
+                if row.get('screen', 0) > 0: 
+                    methods += 1
+                # 互动：分类后为"指导"、"应答"，原始为"guide"、"answer"
+                if (row.get('指导', 0) > 0 or row.get('应答', 0) > 0 or 
+                    row.get('guide', 0) > 0 or row.get('answer', 0) > 0): 
+                    methods += 1
                 return methods * 25  # 最高100
             
             df_timeline['教学丰富度'] = df_timeline.apply(calc_richness, axis=1)
@@ -524,51 +673,220 @@ with tab3:
             st.success("✅ 未检测到明显异常，课堂状态良好！")
             
     with col_right:
-        st.markdown("### 🔗 归因分析")
+        st.markdown("### 🔗 真实相关性分析")
+        st.caption("基于皮尔逊相关系数计算，数据驱动")
         
         if causation_data:
             correlations = causation_data.get('correlations', [])
             if correlations:
-                # 显示最强相关性
-                top_corr = correlations[0] if correlations else None
-                if top_corr:
-                    # 后端返回 student_behavior, teacher_behavior, correlation_coefficient
-                    b1 = top_corr.get('teacher_behavior', top_corr.get('behavior1', '-'))
-                    b2 = top_corr.get('student_behavior', top_corr.get('behavior2', '-'))
-                    corr_val = top_corr.get('correlation_coefficient', top_corr.get('correlation', 0))
-                    st.info(f'💡 **AI 洞察**：分析发现，教师的「{b1}」行为与学生的「{b2}」行为存在显著相关 (Corr: {corr_val:.2f})。')
-            
-            # 构建相关性矩阵
-            if correlations:
-                behaviors = list(set(
-                    [c.get('teacher_behavior', c.get('behavior1', '')) for c in correlations] + 
-                    [c.get('student_behavior', c.get('behavior2', '')) for c in correlations]
-                ))
-                behaviors = [b for b in behaviors if b]  # 过滤空值
+                # 显示相关性列表
+                st.markdown("**显著相关性（p < 0.05）**")
+                for i, corr in enumerate(correlations[:5]):  # 显示前5个
+                    teacher_b = corr.get('teacher_behavior', '')
+                    student_b = corr.get('student_behavior', '')
+                    corr_val = corr.get('correlation_coefficient', 0)
+                    lag = corr.get('lag_time', 0)
+                    interpretation = corr.get('interpretation', '')
+                    
+                    corr_color = "#10B981" if corr_val > 0 else "#EF4444"
+                    lag_text = f" | 滞后: {lag}秒" if lag > 0 else ""
+                    
+                    # 使用单行HTML字符串，避免换行导致的渲染问题
+                    html_content = f'<div style="padding: 12px; margin-bottom: 8px; background-color: #F9FAFB; border-radius: 6px; border-left: 3px solid {corr_color};"><div style="font-weight: 600; color: #111827; margin-bottom: 4px;">{teacher_b} ↔ {student_b}</div><div style="font-size: 0.85rem; color: #6B7280; margin-bottom: 2px;">相关系数: <strong>{corr_val:.3f}</strong>{lag_text}</div><div style="font-size: 0.8rem; color: #9CA3AF;">{interpretation}</div></div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
                 
-                if behaviors:
-                    corr_matrix = pd.DataFrame(1.0, index=behaviors, columns=behaviors)
+                # 构建相关性矩阵（仅显示有相关性的行为对）
+                if len(correlations) > 0:
+                    teacher_behaviors = list(set([c.get('teacher_behavior') for c in correlations]))
+                    student_behaviors = list(set([c.get('student_behavior') for c in correlations]))
                     
-                    for c in correlations:
-                        b1 = c.get('teacher_behavior', c.get('behavior1'))
-                        b2 = c.get('student_behavior', c.get('behavior2'))
-                        corr_val = c.get('correlation_coefficient', c.get('correlation', 0))
-                        if b1 in behaviors and b2 in behaviors:
-                            corr_matrix.loc[b1, b2] = corr_val
-                            corr_matrix.loc[b2, b1] = corr_val
-                    
-                    fig_corr = px.imshow(corr_matrix, text_auto='.2f', color_continuous_scale='RdBu_r', aspect="auto")
-                    fig_corr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-                    st.plotly_chart(fig_corr, use_container_width=True)
+                    if teacher_behaviors and student_behaviors:
+                        # 创建矩阵
+                        corr_matrix = pd.DataFrame(
+                            0.0,
+                            index=teacher_behaviors,
+                            columns=student_behaviors
+                        )
+                        
+                        for c in correlations:
+                            t_b = c.get('teacher_behavior')
+                            s_b = c.get('student_behavior')
+                            corr_val = c.get('correlation_coefficient', 0)
+                            if t_b in teacher_behaviors and s_b in student_behaviors:
+                                corr_matrix.loc[t_b, s_b] = corr_val
+                        
+                        if not corr_matrix.empty:
+                            st.markdown("**相关性矩阵**")
+                            fig_corr = px.imshow(
+                                corr_matrix,
+                                text_auto='.2f',
+                                color_continuous_scale='RdBu_r',
+                                aspect="auto",
+                                labels=dict(x="学生行为", y="教师行为", color="相关系数")
+                            )
+                            fig_corr.update_layout(
+                                paper_bgcolor="rgba(0,0,0,0)",
+                                plot_bgcolor="rgba(0,0,0,0)",
+                                height=300
+                            )
+                            st.plotly_chart(fig_corr, use_container_width=True)
+            else:
+                st.info("💡 未发现显著相关性（p < 0.05 且 |r| > 0.3）")
         else:
-            # 默认显示示例
-            st.info("💡 **AI 洞察**：数据收集中，完成更多课程分析后将展示行为关联性。")
+            st.info("💡 数据收集中，请等待分析完成。")
+
+# ==================== Tab 4 ====================
+with tab4:
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    if teaching_modes_data:
+        modes = teaching_modes_data.get('modes', [])
+        mode_percentages = teaching_modes_data.get('mode_percentages', {})
+        transitions = teaching_modes_data.get('transitions', [])
+        mode_timeline = teaching_modes_data.get('mode_timeline', [])
         
-        mock_corr = pd.DataFrame(
-            [[1.0, 0.75, -0.2], [0.75, 1.0, -0.1], [-0.2, -0.1, 1.0]],
-            columns=['引导', '讨论', '低头'],
-            index=['引导', '讨论', '低头']
-        )
-        fig_corr = px.imshow(mock_corr, text_auto=True, color_continuous_scale='RdBu_r', aspect="auto")
-        fig_corr.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_corr, use_container_width=True)
+        # 检查是否有数据（优先检查mode_percentages，因为它更可靠）
+        if mode_percentages or modes or mode_timeline:
+            st.markdown("### 🎓 教学模式识别")
+            st.caption("基于行为数据自动识别的教学模式")
+            
+            # 模式分布
+            col_mode1, col_mode2 = st.columns([1, 2])
+            
+            with col_mode1:
+                st.markdown("**模式占比**")
+                mode_colors = {
+                    "互动教学": "#10B981",
+                    "板书讲解": "#3B82F6",
+                    "多媒体演示": "#8B5CF6",
+                    "练习模式": "#F59E0B",
+                    "讲授模式": "#EF4444",
+                    "其他": "#9CA3AF"
+                }
+                
+                if mode_percentages:
+                    for mode, pct in sorted(mode_percentages.items(), key=lambda x: x[1], reverse=True):
+                        color = mode_colors.get(mode, "#9CA3AF")
+                        st.markdown(f"""
+                        <div style="padding: 8px; margin-bottom: 6px; background-color: {color}20; border-radius: 4px; border-left: 3px solid {color};">
+                            <span style="font-weight: 600;">{mode}</span>
+                            <span style="float: right; color: #6B7280;">{pct:.1f}%</span>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("暂无模式占比数据")
+            
+            with col_mode2:
+                # 模式占比饼图
+                if mode_percentages:
+                    fig_mode = px.pie(
+                        values=list(mode_percentages.values()),
+                        names=list(mode_percentages.keys()),
+                        color=list(mode_percentages.keys()),
+                        color_discrete_map=mode_colors,
+                        hole=0.4
+                    )
+                    fig_mode.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        showlegend=True,
+                        height=300
+                    )
+                    st.plotly_chart(fig_mode, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # 模式时间线
+            if mode_timeline and len(mode_timeline) > 0:
+                st.markdown("### 📈 教学模式时间线")
+                
+                try:
+                    # 确保数据格式正确
+                    timeline_list = []
+                    for item in mode_timeline:
+                        if isinstance(item, dict):
+                            timeline_list.append({
+                                'timestamp': item.get('timestamp', 0),
+                                'mode': item.get('mode', '其他')
+                            })
+                        else:
+                            # 如果是对象，尝试访问属性
+                            timeline_list.append({
+                                'timestamp': getattr(item, 'timestamp', 0),
+                                'mode': getattr(item, 'mode', '其他')
+                            })
+                    
+                    if timeline_list:
+                        df_mode = pd.DataFrame(timeline_list)
+                        df_mode['时间(分钟)'] = df_mode['timestamp'] / 60
+                        
+                        # 创建模式时间线图
+                        fig_mode_timeline = px.scatter(
+                            df_mode,
+                            x='时间(分钟)',
+                            y='mode',
+                            color='mode',
+                            color_discrete_map=mode_colors,
+                            size_max=15
+                        )
+                        fig_mode_timeline.update_traces(marker=dict(size=12, symbol='square'))
+                        fig_mode_timeline.update_layout(
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(0,0,0,0)",
+                            xaxis_title="时间（分钟）",
+                            yaxis_title="教学模式",
+                            showlegend=True,
+                            height=300
+                        )
+                        st.plotly_chart(fig_mode_timeline, use_container_width=True)
+                    else:
+                        st.info("模式时间线数据格式不正确")
+                except Exception as e:
+                    st.error(f"处理模式时间线时出错: {str(e)}")
+                    st.info("请检查后端API返回的数据格式")
+            
+            st.markdown("---")
+            
+            # 模式转换分析
+            if transitions:
+                st.markdown("### 🔄 模式转换分析")
+                
+                # 转换频率统计
+                transition_counts = {}
+                for trans in transitions:
+                    key = f"{trans.get('from_mode')} → {trans.get('to_mode')}"
+                    transition_counts[key] = transition_counts.get(key, 0) + trans.get('count', 1)
+                
+                if transition_counts:
+                    df_trans = pd.DataFrame([
+                        {"转换": k, "次数": v}
+                        for k, v in sorted(transition_counts.items(), key=lambda x: x[1], reverse=True)
+                    ])
+                    
+                    fig_trans = px.bar(
+                        df_trans,
+                        x='转换',
+                        y='次数',
+                        color='次数',
+                        color_continuous_scale='Blues'
+                    )
+                    fig_trans.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        xaxis_title="模式转换",
+                        yaxis_title="转换次数",
+                        height=300
+                    )
+                    st.plotly_chart(fig_trans, use_container_width=True)
+                    
+                    # 转换列表
+                    st.markdown("**转换详情**")
+                    for trans in sorted(transitions, key=lambda x: x.get('count', 0), reverse=True)[:10]:
+                        st.write(f"- **{trans.get('from_mode')}** → **{trans.get('to_mode')}**: {trans.get('count')}次")
+                else:
+                    st.info("暂无模式转换数据")
+            else:
+                st.info("暂无模式转换数据")
+        else:
+            st.info("暂无教学模式数据，请确保视频分析已完成。")
+    else:
+        st.info("💡 教学模式分析数据暂不可用，请等待分析完成。")

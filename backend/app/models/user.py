@@ -12,6 +12,7 @@ class UserRole(str, enum.Enum):
     """用户角色枚举"""
     TEACHER = "teacher"
     ADMIN = "admin"
+    SUPER_ADMIN = "super_admin"
 
 
 class User(Base):
@@ -25,6 +26,7 @@ class User(Base):
     role = Column(String(20), default=UserRole.TEACHER.value, nullable=False)
     unit = Column(String(100), nullable=True)  # 单位/学校
     class_name = Column(String(50), nullable=True)  # 班级
+    is_active = Column(Integer, default=1, nullable=False)  # 1=启用, 0=禁用
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

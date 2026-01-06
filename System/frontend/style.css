@@ -113,3 +113,34 @@ div[data-testid="stDataFrame"] {
     align-items: center;
     height: 100vh;
 }
+
+/* 隐藏管理员页面链接（非管理员用户） */
+/* 这些样式会在 utils.py 中根据用户角色动态应用 */
+/* 基础样式：全局隐藏（会被 utils.py 中的动态样式覆盖） */
+div[data-testid="stSidebarNav"] a[href*="Admin_0"],
+div[data-testid="stSidebarNav"] a[href*="Admin_1"],
+div[data-testid="stSidebarNav"] a[href*="Admin_"],
+div[data-testid="stSidebarNav"] a[href*="5_"],
+div[data-testid="stSidebarNav"] a[href*="6_"],
+div[data-testid="stSidebarNav"] a[href*="%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86"],
+div[data-testid="stSidebarNav"] a[href*="%E8%AF%BE%E8%A1%A8%E7%AE%A1%E7%90%86"],
+div[data-testid="stSidebarNav"] a[href*="用户管理"],
+div[data-testid="stSidebarNav"] a[href*="课表管理"] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* 隐藏包含管理员页面的列表项 */
+div[data-testid="stSidebarNav"] ul li:has(a[href*="Admin_0"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="Admin_1"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="Admin_"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="5_"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="6_"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="%E8%AF%BE%E8%A1%A8%E7%AE%A1%E7%90%86"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="用户管理"]),
+div[data-testid="stSidebarNav"] ul li:has(a[href*="课表管理"]) {
+    display: none !important;
+    visibility: hidden !important;
+}

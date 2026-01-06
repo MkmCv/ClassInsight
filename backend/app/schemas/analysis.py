@@ -77,6 +77,46 @@ class CausationResponse(BaseModel):
     overlap_analysis: List[OverlapItem]
 
 
+class TeachingModeItem(BaseModel):
+    """教学模式项"""
+    mode: str = Field(..., description="教学模式名称")
+    count: int = Field(..., description="出现次数")
+    percentage: float = Field(..., description="占比（%）")
+
+
+class ModeTransitionItem(BaseModel):
+    """模式转换项"""
+    from_mode: str = Field(..., description="起始模式")
+    to_mode: str = Field(..., description="目标模式")
+    count: int = Field(..., description="转换次数")
+    timestamp: Optional[int] = Field(None, description="转换时间戳（示例）")
+
+
+class ModeTimelinePoint(BaseModel):
+    """模式时间线点"""
+    timestamp: int = Field(..., description="时间戳（秒）")
+    mode: str = Field(..., description="教学模式")
+
+
+class TeachingModeResponse(BaseModel):
+    """教学模式分析响应"""
+    video_id: int
+    modes: List[str] = Field(..., description="识别的教学模式列表")
+    mode_distribution: Dict[str, int] = Field(..., description="模式分布（次数）")
+    mode_percentages: Dict[str, float] = Field(..., description="模式占比（%）")
+    transitions: List[ModeTransitionItem] = Field(..., description="模式转换列表")
+    mode_timeline: List[ModeTimelinePoint] = Field(..., description="模式时间线")
+    total_windows: int = Field(..., description="总时间窗口数")
+
+
+
+
+
+
+
+
+
+
 
 
 

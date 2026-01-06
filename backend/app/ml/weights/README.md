@@ -42,4 +42,3 @@ yolo-vheat/runs/train/<experiment_name>/weights/best.pt
 
 
 
-

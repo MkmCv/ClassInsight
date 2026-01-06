@@ -3,7 +3,7 @@
 """
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class UserBase(BaseModel):
@@ -29,8 +29,10 @@ class UserLogin(BaseModel):
 class UserUpdate(BaseModel):
     """用户信息更新"""
     email: Optional[EmailStr] = None
-    unit: Optional[str] = None
-    class_name: Optional[str] = None
+    role: Optional[str] = Field(None, description="角色: teacher | admin")
+    unit: Optional[str] = Field(None, max_length=100, description="单位")
+    class_name: Optional[str] = Field(None, max_length=50, description="班级")
+    is_active: Optional[bool] = Field(None, description="是否启用")
 
 
 class PasswordChange(BaseModel):
@@ -47,7 +49,16 @@ class UserResponse(BaseModel):
     role: str
     unit: Optional[str] = None
     class_name: Optional[str] = None
+    is_active: bool = True
     created_at: datetime
+    
+    @field_validator('is_active', mode='before')
+    @classmethod
+    def convert_is_active(cls, v):
+        """将数据库中的 Integer (0/1) 转换为 bool"""
+        if isinstance(v, int):
+            return bool(v)
+        return v
     
     class Config:
         from_attributes = True
@@ -59,6 +70,14 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserResponse
+
+
+
+
+
+
+
+
 
 
 

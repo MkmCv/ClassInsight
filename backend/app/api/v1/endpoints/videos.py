@@ -281,6 +281,61 @@ async def delete_video(
     return None
 
 
+@router.post("/{video_id}/reanalyze", status_code=status.HTTP_202_ACCEPTED)
+async def reanalyze_video(
+    video_id: int,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    重新分析视频
+    对于已上传但未分析、分析失败或需要重新分析的视频，可以触发重新分析
+    """
+    result = await db.execute(
+        select(Video).where(
+            and_(Video.id == video_id, Video.user_id == current_user.id)
+        )
+    )
+    video = result.scalar_one_or_none()
+    
+    if not video:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="视频不存在"
+        )
+    
+    # 检查视频文件是否存在
+    if not os.path.exists(video.filepath):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="视频文件不存在，无法重新分析"
+        )
+    
+    # 检查视频状态：如果正在处理中，不允许重新分析
+    if video.status == VideoStatus.PROCESSING.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="视频正在处理中，请等待处理完成"
+        )
+    
+    # 更新状态为处理中
+    video.status = VideoStatus.PROCESSING.value
+    video.progress = 0.0
+    video.current_frame = 0
+    video.error_message = None
+    await db.commit()
+    
+    # 启动后台处理任务
+    background_tasks.add_task(process_video_task, video.id, video.filepath)
+    
+    return {
+        "message": "视频分析任务已启动",
+        "video_id": video.id,
+        "status": "processing"
+    }
+
+
 
 
 

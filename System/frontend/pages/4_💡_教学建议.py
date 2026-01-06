@@ -8,7 +8,7 @@ import time
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css
+from utils import load_css, render_sidebar
 
 st.set_page_config(page_title="教学建议 - ClassInsight", page_icon="💡", layout="wide")
 
@@ -17,6 +17,9 @@ load_css()
 if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
     st.warning("请先登录")
     st.switch_page("app.py")
+
+# 渲染侧边栏（用户信息 + 退出登录）
+render_sidebar()
 
 # ==================== API 配置 ====================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -30,12 +33,14 @@ def get_api_headers():
     return headers
 
 
-def fetch_video_list():
-    """获取视频列表"""
+@st.cache_data(ttl=30, show_spinner=False)
+def fetch_video_list(_headers_tuple):
+    """获取视频列表（缓存30秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/videos",
-            headers=get_api_headers(),
+            headers=headers,
             params={"page": 1, "page_size": 50, "status": "completed"},
             timeout=5
         )
@@ -46,12 +51,14 @@ def fetch_video_list():
         return []
 
 
-def fetch_recommendations(video_id):
-    """获取教学建议"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_recommendations(_headers_tuple, video_id):
+    """获取教学建议（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/optimization/{video_id}/recommendations",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -61,12 +68,14 @@ def fetch_recommendations(video_id):
         return None
 
 
-def fetch_highlights(video_id):
-    """获取精彩片段"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_highlights(_headers_tuple, video_id):
+    """获取精彩片段（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/optimization/{video_id}/highlights",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -76,12 +85,14 @@ def fetch_highlights(video_id):
         return None
 
 
-def fetch_comparison():
-    """获取跨课次对比数据"""
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_comparison(_headers_tuple):
+    """获取跨课次对比数据（缓存60秒）"""
     try:
+        headers = dict(_headers_tuple)
         response = requests.get(
             f"{API_BASE_URL}/optimization/comparison",
-            headers=get_api_headers(),
+            headers=headers,
             timeout=10
         )
         if response.status_code == 200:
@@ -91,8 +102,9 @@ def fetch_comparison():
         return None
 
 
-# 获取视频列表
-videos = fetch_video_list()
+# 获取视频列表（使用缓存）
+headers_tuple = tuple(sorted(get_api_headers().items()))
+videos = fetch_video_list(headers_tuple)
 
 # 侧边栏
 with st.sidebar:
@@ -123,10 +135,10 @@ with st.sidebar:
         st.caption("请先上传并分析视频")
         selected_video_id = None
 
-# 获取数据
-recommendations_data = fetch_recommendations(selected_video_id) if selected_video_id else None
-highlights_data = fetch_highlights(selected_video_id) if selected_video_id else None
-comparison_data = fetch_comparison()
+# 获取数据（使用缓存）
+recommendations_data = fetch_recommendations(headers_tuple, selected_video_id) if selected_video_id else None
+highlights_data = fetch_highlights(headers_tuple, selected_video_id) if selected_video_id else None
+comparison_data = fetch_comparison(headers_tuple)
 
 # ========== 页面标题 ==========
 st.markdown("# 💡 AI 教学优化助手")
@@ -439,42 +451,39 @@ with tab2:
             message_placeholder = st.empty()
             full_response = ""
             
-            with st.spinner("🤔 AI 正在分析数据并思考教学策略..."):
-                try:
-                    # 调用后端 Agent API
-                    response = requests.post(
-                        f"{API_BASE_URL}/agent/chat",
-                        headers=get_api_headers(),
-                        json={
-                            "video_id": selected_video_id,
-                            "messages": st.session_state[chat_key]
-                        },
-                        timeout=60
-                    )
-                    
-                    if response.status_code == 200:
-                        result = response.json()
-                        full_response = result.get("content", "抱歉，未能获取回复。")
-                    else:
-                        try:
-                            error_detail = response.json().get("detail", "未知错误")
-                        except:
-                            error_detail = f"HTTP {response.status_code}"
-                        full_response = f"⚠️ AI 服务暂时不可用：{error_detail}"
-                        
-                except requests.exceptions.Timeout:
-                    full_response = "⚠️ 请求超时，AI 正在处理大量数据，请稍后重试。"
-                except requests.exceptions.ConnectionError:
-                    full_response = "⚠️ 无法连接到后端服务，请确认服务已启动。"
-                except Exception as e:
-                    full_response = f"⚠️ 发生错误：{str(e)}"
+            # 显示加载状态，避免白屏
+            message_placeholder.markdown("🤔 AI 正在分析数据并思考教学策略...")
             
-            # 流式显示效果
-            displayed = ""
-            for char in full_response:
-                displayed += char
-                message_placeholder.markdown(displayed + "▌")
-                time.sleep(0.01)
+            try:
+                # 调用后端 Agent API
+                response = requests.post(
+                    f"{API_BASE_URL}/agent/chat",
+                    headers=get_api_headers(),
+                    json={
+                        "video_id": selected_video_id,
+                        "messages": st.session_state[chat_key]
+                    },
+                    timeout=60
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    full_response = result.get("content", "抱歉，未能获取回复。")
+                else:
+                    try:
+                        error_detail = response.json().get("detail", "未知错误")
+                    except:
+                        error_detail = f"HTTP {response.status_code}"
+                    full_response = f"⚠️ AI 服务暂时不可用：{error_detail}"
+                    
+            except requests.exceptions.Timeout:
+                full_response = "⚠️ 请求超时，AI 正在处理大量数据，请稍后重试。"
+            except requests.exceptions.ConnectionError:
+                full_response = "⚠️ 无法连接到后端服务，请确认服务已启动。"
+            except Exception as e:
+                full_response = f"⚠️ 发生错误：{str(e)}"
+            
+            # 直接显示完整响应，移除阻塞式sleep
             message_placeholder.markdown(full_response)
         
         st.session_state[chat_key].append({"role": "assistant", "content": full_response})

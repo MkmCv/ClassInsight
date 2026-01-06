@@ -37,8 +37,15 @@ async def lifespan(app: FastAPI):
     yield
     
     # 关闭时执行
-    await close_db()
-    print("👋 ClassInsight Backend 已关闭")
+    try:
+        await close_db()
+        print("👋 ClassInsight Backend 已关闭")
+    except Exception as e:
+        # 忽略关闭时的取消错误（正常关闭流程）
+        if "CancelledError" not in str(type(e).__name__):
+            print(f"⚠️ 关闭时出现错误: {e}")
+        else:
+            print("👋 ClassInsight Backend 已关闭")
 
 
 # 创建 FastAPI 应用
@@ -128,6 +135,22 @@ if __name__ == "__main__":
         reload=settings.DEBUG,
         log_level="info"
     )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

@@ -2,7 +2,7 @@
 API v1 路由聚合
 """
 from fastapi import APIRouter
-from .endpoints import auth, videos, analysis, optimization, dashboard, admin, agent
+from .endpoints import auth, videos, analysis, optimization, dashboard, admin, agent, schedules, super_admin
 
 api_router = APIRouter()
 
@@ -14,5 +14,7 @@ api_router.include_router(analysis.router, prefix="/analysis", tags=["行为分�
 api_router.include_router(optimization.router, prefix="/optimization", tags=["教学优化"])
 api_router.include_router(admin.router, prefix="/admin", tags=["管理员"])
 api_router.include_router(agent.router, prefix="/agent", tags=["AI教学顾问"])
+api_router.include_router(schedules.router, prefix="/schedules", tags=["课表管理"])
+api_router.include_router(super_admin.router, prefix="/super-admin", tags=["超级管理员"])
 
 

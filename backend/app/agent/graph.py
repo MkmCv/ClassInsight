@@ -206,3 +206,19 @@ async def chat_with_agent(video_id: int, user_message: str, history: list = None
     return last_message.content if hasattr(last_message, "content") else str(last_message)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -9,6 +9,8 @@
 3. [行为分析模块](#3-行为分析模块)
 4. [教学优化模块](#4-教学优化模块)
 5. [报告导出模块](#5-报告导出模块)
+6. [管理员模块](#6-管理员模块)
+7. [超级管理员模块](#7-超级管理员模块)
 
 ---
 
@@ -713,8 +715,275 @@ POST /api/v1/reports/generate
 
 ---
 
-**文档版本：** v1.0.0  
-**最后更新：** 2025-10-23
+---
+
+## 6. 管理员模块
+
+### 6.1 获取用户列表
+```http
+GET /api/v1/admin/users?page=1&page_size=20&role=teacher&search=xxx
+Authorization: Bearer {token}
+```
+
+**查询参数：**
+- `page` - 页码（默认1）
+- `page_size` - 每页数量（默认20）
+- `role` - 角色筛选（可选）：teacher, admin
+- `search` - 搜索关键词（用户名或邮箱）
+- `is_active` - 状态筛选（可选）：0, 1
+
+**响应示例：**
+```json
+{
+  "total": 50,
+  "page": 1,
+  "page_size": 20,
+  "items": [
+    {
+      "id": 1,
+      "username": "teacher001",
+      "email": "teacher@example.com",
+      "role": "teacher",
+      "is_active": true,
+      "created_at": "2025-10-23T10:00:00Z"
+    }
+  ]
+}
+```
+
+**权限要求：** 仅管理员可访问
+
+---
+
+### 6.2 创建用户
+```http
+POST /api/v1/admin/users
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "username": "teacher002",
+  "email": "teacher2@example.com",
+  "password": "SecurePass123!",
+  "role": "teacher",
+  "unit": "实验中学",
+  "class_name": "高一(2)班"
+}
+```
+
+**权限要求：** 仅管理员可访问
+
+---
+
+### 6.3 获取登录失败记录
+```http
+GET /api/v1/admin/login-attempts?page=1&page_size=20
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+{
+  "total": 10,
+  "page": 1,
+  "page_size": 20,
+  "items": [
+    {
+      "username": "user001",
+      "ip_address": "192.168.1.100",
+      "failed_count": 3,
+      "locked_until": "2025-10-23T11:00:00Z",
+      "last_attempt": "2025-10-23T10:30:00Z"
+    }
+  ]
+}
+```
+
+**权限要求：** 仅管理员可访问
+
+---
+
+### 6.4 清除登录失败记录（解锁账户）
+```http
+DELETE /api/v1/admin/login-attempts/{username}
+Authorization: Bearer {token}
+```
+
+**权限要求：** 仅管理员可访问
+
+---
+
+## 7. 超级管理员模块
+
+> **重要**：所有超级管理员 API 都需要用户角色为 `super_admin`
+
+### 7.1 获取登录安全配置
+```http
+GET /api/v1/super-admin/login-security-config
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+{
+  "max_login_attempts": 5,
+  "lockout_minutes": 15,
+  "captcha_required_after": 3,
+  "note": "配置修改需要重启服务生效"
+}
+```
+
+**权限要求：** 仅超级管理员可访问
+
+---
+
+### 7.2 更新登录安全配置
+```http
+PUT /api/v1/super-admin/login-security-config
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "max_login_attempts": 10,
+  "lockout_minutes": 30,
+  "captcha_required_after": 5
+}
+```
+
+**响应示例：**
+```json
+{
+  "message": "配置更新需要修改代码文件并重启服务",
+  "current_config": {
+    "max_login_attempts": 5,
+    "lockout_minutes": 15,
+    "captcha_required_after": 3
+  },
+  "requested_config": {
+    "max_login_attempts": 10,
+    "lockout_minutes": 30,
+    "captcha_required_after": 5
+  },
+  "instructions": {
+    "file": "backend/app/core/config.py",
+    "variables": [
+      "MAX_LOGIN_ATTEMPTS",
+      "LOGIN_LOCKOUT_MINUTES",
+      "CAPTCHA_REQUIRED_AFTER"
+    ],
+    "note": "修改后需要重启后端服务"
+  }
+}
+```
+
+**说明：**
+- 当前配置存储在代码文件中，此 API 仅提供修改说明
+- 实际修改需要编辑 `backend/app/core/config.py` 并重启服务
+
+**权限要求：** 仅超级管理员可访问
+
+---
+
+### 7.3 获取模型信息
+```http
+GET /api/v1/super-admin/model-info
+Authorization: Bearer {token}
+```
+
+**响应示例：**
+```json
+{
+  "model_directory": "/path/to/ml/weights",
+  "models": [
+    {
+      "name": "comprehensive_scene_best.pt",
+      "path": "/path/to/model.pt",
+      "size": 12345678,
+      "modified": 1234567890.0
+    }
+  ],
+  "current_config": {
+    "model_weights_dir": "/path/to/weights",
+    "confidence_threshold": 0.3,
+    "nms_iou_threshold": 0.5
+  }
+}
+```
+
+**权限要求：** 仅超级管理员可访问
+
+---
+
+### 7.4 更新模型（开发中）
+```http
+POST /api/v1/super-admin/model/update
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "model_name": "new_model.pt"
+}
+```
+
+**响应示例：**
+```json
+{
+  "message": "模型更新功能开发中",
+  "model_name": "new_model.pt",
+  "note": "此功能需要实现模型下载、验证和替换逻辑"
+}
+```
+
+**权限要求：** 仅超级管理员可访问  
+**状态：** 开发中
+
+---
+
+### 7.5 激活模型（开发中）
+```http
+POST /api/v1/super-admin/model/activate
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{
+  "model_name": "new_model.pt"
+}
+```
+
+**响应示例：**
+```json
+{
+  "message": "模型激活功能开发中",
+  "model_name": "new_model.pt",
+  "note": "此功能需要实现模型切换和验证逻辑"
+}
+```
+
+**权限要求：** 仅超级管理员可访问  
+**状态：** 开发中
+
+---
+
+## 🔐 认证说明
+
+所有需要认证的接口都需要在请求头中添加JWT token：
+
+```http
+Authorization: Bearer {access_token}
+```
+
+token通过登录接口获取，有效期建议设置为24小时。
+
+### 角色权限
+
+- **教师** (`teacher`): 可以访问认证、视频管理、行为分析、教学优化模块
+- **管理员** (`admin`): 可以访问所有教师功能 + 管理员模块
+- **超级管理员** (`super_admin`): 可以访问所有功能 + 超级管理员模块
+
+---
+
+**文档版本：** v1.1.0  
+**最后更新：** 2026-01-06
 
 
 

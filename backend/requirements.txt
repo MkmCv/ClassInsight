@@ -14,6 +14,7 @@ aiosqlite>=0.19.0
 # === Authentication ===
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.0,<5.0.0  # 指定兼容的 bcrypt 版本
 
 # === Configuration ===
 pydantic>=2.5.0
@@ -27,13 +28,30 @@ aiofiles>=23.2.1
 opencv-python>=4.9.0.80
 numpy>=1.24.0
 Pillow>=10.2.0
+scipy>=1.11.0  # 用于统计计算（皮尔逊相关系数）
 
 # === ML/AI (YOLO-vHeat) ===
-# 注意：这些依赖需要从 yolo-vheat 项目安装
-# 如果单独安装后端，可能需要手动安装以下依赖：
-# torch>=2.1.0
-# torchvision>=0.16.0
-# ultralytics  # 需要从 yolo-vheat 目录安装
+# 注意：ultralytics 需要从 yolo-vheat 项目以可编辑模式安装
+# 
+# 安装步骤：
+# 1. 首先安装 PyTorch（根据您的 CUDA 版本选择）：
+#    # CUDA 12.1
+#    pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
+#    # CUDA 11.8
+#    pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu118
+#    # CPU 版本
+#    pip install torch==2.1.0 torchvision==0.16.0
+#
+# 2. 进入 yolo-vheat 目录并安装 ultralytics（可编辑模式）：
+#    cd "H:\毕业设计\System\Model components\yolo-vheat"
+#    pip install -e .
+#
+# 3. 验证安装：
+#    python -c "from ultralytics import YOLO; print('✅ ultralytics 安装成功')"
+#
+# 或者，如果您想手动安装依赖（不推荐，可能缺少 vHeat 模块）：
+# pip install torch>=2.1.0 torchvision>=0.16.0
+# pip install ultralytics  # 注意：这会安装标准版本，不包含 vHeat 模块
 
 # === Utilities ===
 httpx>=0.26.0  # HTTP客户端

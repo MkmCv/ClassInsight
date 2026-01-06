@@ -69,12 +69,19 @@ async def process_video_task(video_id: int, video_path: str):
             # 初始化检测器（延迟导入避免启动时加载模型）
             detector = await get_detector()
             
+            # 初始化行为分类器
+            from ..ml.behavior_classifier import get_classifier
+            behavior_classifier = get_classifier()
+            
             # 抽帧分析
             frame_interval = int(fps / settings.VIDEO_PROCESS_FPS) if fps > 0 else 30
             current_frame = 0
             window_size = 10  # 10秒窗口
             window_data = {}  # 按时间窗口聚合的数据
-            all_behavior_counts = {}  # 全局统计
+            all_behavior_counts = {}  # 全局统计（原始类别）
+            classified_behaviors = []  # 分类后的行为序列
+            student_behavior_counts = {}  # 学生行为统计
+            teacher_behavior_counts = {}  # 教师行为统计
             
             while True:
                 ret, frame = cap.read()
@@ -92,13 +99,57 @@ async def process_video_task(video_id: int, video_path: str):
                         # 如果没有检测器，生成模拟数据
                         detections = generate_mock_detections(timestamp)
                     
-                    # 聚合到时间窗口
+                    # 使用行为分类器进行分类
+                    student_behavior, teacher_behavior = behavior_classifier.classify_frame(detections)
+                    
+                    # 存储分类结果
+                    classified_behaviors.append({
+                        "timestamp": timestamp,
+                        "student_behavior": student_behavior,
+                        "teacher_behavior": teacher_behavior,
+                        "raw_detections": detections
+                    })
+                    
+                    # 统计分类后的行为
+                    if student_behavior:
+                        if student_behavior not in student_behavior_counts:
+                            student_behavior_counts[student_behavior] = {"count": 0, "frames": set(), "last_event_time": -10}
+                        
+                        # 特殊处理：学生举手需要3人及以上才算1次举手事件
+                        if student_behavior == "学生举手":
+                            # 统计该帧中实际检测到的举手人数
+                            hand_raising_count = sum(1 for det in detections if det.get("category", "").lower() == "hand-raising")
+                            if hand_raising_count >= 3:
+                                # 3人及以上算1次举手事件
+                                # 检查是否是新的事件（与上一事件间隔超过5秒算新事件，避免连续帧重复计数）
+                                last_event_time = student_behavior_counts[student_behavior]["last_event_time"]
+                                if timestamp - last_event_time > 5:  # 间隔超过5秒算新事件
+                                    student_behavior_counts[student_behavior]["count"] += 1
+                                    student_behavior_counts[student_behavior]["last_event_time"] = timestamp
+                                # 记录该帧（用于时长统计）
+                                student_behavior_counts[student_behavior]["frames"].add(timestamp)
+                            # 如果少于3人，不计数（虽然分类器可能已经分类为"学生举手"，但统计时不计数）
+                        else:
+                            # 其他行为正常计数（按帧）
+                            student_behavior_counts[student_behavior]["count"] += 1
+                            student_behavior_counts[student_behavior]["frames"].add(timestamp)
+                    
+                    if teacher_behavior:
+                        if teacher_behavior not in teacher_behavior_counts:
+                            teacher_behavior_counts[teacher_behavior] = {"count": 0, "frames": set()}
+                        teacher_behavior_counts[teacher_behavior]["count"] += 1
+                        teacher_behavior_counts[teacher_behavior]["frames"].add(timestamp)
+                    
+                    # 聚合到时间窗口（保留原始检测数据用于兼容性）
                     if window_key not in window_data:
                         window_data[window_key] = {
                             "behavior_counts": {},
-                            "detections": []
+                            "detections": [],
+                            "student_behaviors": {},
+                            "teacher_behaviors": {}
                         }
                     
+                    # 更新原始类别计数（用于兼容性）
                     for det in detections:
                         category = det.get("category", "unknown")
                         
@@ -116,6 +167,27 @@ async def process_video_task(video_id: int, video_path: str):
                         # 存储检测详情（可选）
                         window_data[window_key]["detections"].append(det)
                     
+                    # 更新分类后的行为计数（按窗口）
+                    if student_behavior:
+                        if student_behavior not in window_data[window_key]["student_behaviors"]:
+                            window_data[window_key]["student_behaviors"][student_behavior] = 0
+                        
+                        # 特殊处理：学生举手需要3人及以上才算1次
+                        if student_behavior == "学生举手":
+                            hand_raising_count = sum(1 for det in detections if det.get("category", "").lower() == "hand-raising")
+                            if hand_raising_count >= 3:
+                                # 检查窗口内是否已经计数过（避免同一窗口内重复计数）
+                                # 每窗口最多计数1次举手事件
+                                if window_data[window_key]["student_behaviors"][student_behavior] == 0:
+                                    window_data[window_key]["student_behaviors"][student_behavior] = 1
+                        else:
+                            window_data[window_key]["student_behaviors"][student_behavior] += 1
+                    
+                    if teacher_behavior:
+                        if teacher_behavior not in window_data[window_key]["teacher_behaviors"]:
+                            window_data[window_key]["teacher_behaviors"][teacher_behavior] = 0
+                        window_data[window_key]["teacher_behaviors"][teacher_behavior] += 1
+                    
                     # 更新进度
                     video.progress = current_frame / total_frames
                     video.current_frame = current_frame
@@ -125,35 +197,93 @@ async def process_video_task(video_id: int, video_path: str):
             
             cap.release()
             
-            # 存储时间线数据
+            # 存储时间线数据（保持原有格式，同时添加分类后的数据作为额外字段）
             for timestamp, data in window_data.items():
+                # 保持原有格式：直接使用原始 behavior_counts（确保前端兼容）
+                behavior_counts = data["behavior_counts"].copy()
+                
+                # 如果有分类后的数据，添加到额外字段中（不影响原有格式）
+                if data.get("student_behaviors") or data.get("teacher_behaviors"):
+                    # 将分类后的数据也添加到主字典中（用于前端展示分类后的行为）
+                    behavior_counts.update(data.get("student_behaviors", {}))
+                    behavior_counts.update(data.get("teacher_behaviors", {}))
+                    # 同时保存原始数据用于API选择
+                    behavior_counts["_raw"] = data["behavior_counts"]
+                    behavior_counts["_classified"] = {
+                        "student_behaviors": data.get("student_behaviors", {}),
+                        "teacher_behaviors": data.get("teacher_behaviors", {})
+                    }
+                
                 timeline_entry = AnalysisTimeline(
                     video_id=video_id,
                     timestamp=timestamp,
                     window_size=window_size,
-                    behavior_counts=data["behavior_counts"],
+                    behavior_counts=behavior_counts,  # 保持原有格式，添加分类数据
                     detections=data.get("detections")[:10] if data.get("detections") else None  # 限制存储量
                 )
                 db.add(timeline_entry)
             
-            # 计算汇总统计
+            # 计算汇总统计（包含原始和分类后的行为）
             behavior_summary = {}
+            
+            # 原始类别统计（用于兼容性）
             for category, data in all_behavior_counts.items():
                 count = data["count"]
-                # 估算时长：出现的独立秒数
                 total_duration = len(data["frames"])
                 percentage = (total_duration / duration * 100) if duration > 0 else 0
                 
                 behavior_summary[category] = {
                     "count": count,
                     "total_duration": total_duration,
+                    "percentage": round(percentage, 1),
+                    "type": "raw"  # 标记为原始类别
+                }
+            
+            # 分类后的学生行为统计
+            student_behavior_summary = {}
+            for behavior, data in student_behavior_counts.items():
+                count = data["count"]
+                total_duration = len(data["frames"])
+                percentage = (total_duration / duration * 100) if duration > 0 else 0
+                
+                student_behavior_summary[behavior] = {
+                    "count": count,
+                    "total_duration": total_duration,
                     "percentage": round(percentage, 1)
                 }
             
-            # 计算关键指标
-            discuss_duration = behavior_summary.get("discuss", {}).get("total_duration", 0)
+            # 分类后的教师行为统计
+            teacher_behavior_summary = {}
+            for behavior, data in teacher_behavior_counts.items():
+                count = data["count"]
+                total_duration = len(data["frames"])
+                percentage = (total_duration / duration * 100) if duration > 0 else 0
+                
+                teacher_behavior_summary[behavior] = {
+                    "count": count,
+                    "total_duration": total_duration,
+                    "percentage": round(percentage, 1)
+                }
+            
+            # 合并到汇总数据
+            behavior_summary["_classified"] = {
+                "student_behaviors": student_behavior_summary,
+                "teacher_behaviors": teacher_behavior_summary
+            }
+            
+            # 计算关键指标（兼容原始和分类后的数据）
+            # 讨论/互动时长：优先使用分类后的"讨论"，否则使用原始的"discuss"
+            discuss_duration = (
+                student_behavior_summary.get("讨论", {}).get("total_duration", 0) or
+                behavior_summary.get("discuss", {}).get("total_duration", 0)
+            )
+            # 低头时长：使用原始数据（分类后可能包含在"其它"中）
             bowhead_duration = behavior_summary.get("BowHead", {}).get("total_duration", 0)
-            handraising_count = behavior_summary.get("hand-raising", {}).get("count", 0)
+            # 举手次数：优先使用分类后的"学生举手"，否则使用原始的"hand-raising"
+            handraising_count = (
+                student_behavior_summary.get("学生举手", {}).get("count", 0) or
+                behavior_summary.get("hand-raising", {}).get("count", 0)
+            )
             
             interaction_rate = discuss_duration / duration if duration > 0 else 0
             attention_rate = 1 - (bowhead_duration / duration) if duration > 0 else 1
@@ -318,6 +448,20 @@ def detect_anomalies(window_data: Dict, window_size: int, duration: float) -> Li
             no_interaction_count = 0
     
     return anomalies
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
