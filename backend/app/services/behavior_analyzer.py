@@ -20,7 +20,7 @@ def calculate_correlation(
     Args:
         series1: 第一个时间序列（教师行为）
         series2: 第二个时间序列（学生行为）
-        max_lag: 最大滞后窗口数（默认10个窗口，即100秒）
+        max_lag: 最大滞后「步数」；每步对应时间线一行，当前与 10s 时间窗一致时即最多滞后约 max_lag*10 秒
     
     Returns:
         (correlation_coefficient, lag_time, p_value)
@@ -56,7 +56,7 @@ def calculate_correlation(
             # 取绝对值最大的相关性
             if abs(corr) > abs(best_corr):
                 best_corr = corr
-                best_lag = lag * 10  # 转换为秒（每个窗口10秒）
+                best_lag = lag * 10  # 与 video_processor 默认 window_size=10 对齐：lag 步 → 秒
                 best_p = p_value
         except:
             continue

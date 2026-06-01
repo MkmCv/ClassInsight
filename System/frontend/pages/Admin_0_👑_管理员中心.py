@@ -6,16 +6,15 @@ from datetime import datetime
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar, get_api_headers
+from utils import load_css, render_sidebar, get_api_headers, check_authentication
 
 st.set_page_config(page_title="管理员中心 - ClassInsight", page_icon="👑", layout="wide")
 
 load_css()
 
 # ==================== 权限检查 ====================
-if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
-    st.warning("请先登录")
-    st.switch_page("app.py")
+# 检查登录（自动从 localStorage 恢复）
+check_authentication()
 
 render_sidebar()
 

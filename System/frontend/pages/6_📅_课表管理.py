@@ -7,16 +7,15 @@ from datetime import datetime, date, time as dt_time, timedelta
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar
+from utils import load_css, render_sidebar, check_authentication
 
 st.set_page_config(page_title="课表管理 - ClassInsight", page_icon="📅", layout="wide")
 
 load_css()
 
 # ==================== 权限检查 ====================
-if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
-    st.warning("请先登录")
-    st.switch_page("app.py")
+# 检查登录（自动从 localStorage 恢复）
+check_authentication()
 
 render_sidebar()
 
@@ -134,7 +133,7 @@ st.markdown("为教师安排课程，管理周课表。")
 DAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 DAY_NAMES_FULL = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"]
 
-tab1, tab2, tab3 = st.tabs(["📅 日历视图", "📋 列表视图", "➕ 新增课程"])
+tab1, tab2, tab3, tab4 = st.tabs(["📅 日历视图", "📋 列表视图", "➕ 新增课程", "📥 批量导入"])
 
 # ==================== Tab1: 日历视图 ====================
 with tab1:
@@ -473,3 +472,211 @@ with tab3:
                         st.rerun()
                     else:
                         st.error(f"❌ {result}")
+
+
+# ==================== Tab4: 批量导入 ====================
+with tab4:
+    st.markdown("### 📥 批量导入课表")
+    st.markdown("可以一次性为多个教师导入课表数据。")
+    
+    import_mode = st.radio(
+        "选择导入方式",
+        ["使用预设Mock数据", "手动输入JSON数据"],
+        horizontal=True
+    )
+    
+    if import_mode == "使用预设Mock数据":
+        st.markdown("#### 📋 Mock课表数据")
+        st.info("将导入以下预设课表数据（周一到周五，每天3-4节课）")
+        
+        # 显示Mock数据预览
+        mock_data_preview = [
+            {"星期": "周一", "时间": "08:00-08:45", "课程": "数学", "班级": "高一(1)班"},
+            {"星期": "周一", "时间": "09:00-09:45", "课程": "数学", "班级": "高一(2)班"},
+            {"星期": "周一", "时间": "10:10-10:55", "课程": "数学", "班级": "高一(3)班"},
+            {"星期": "周一", "时间": "14:00-14:45", "课程": "数学", "班级": "高一(1)班"},
+            {"星期": "周二", "时间": "08:00-08:45", "课程": "数学", "班级": "高一(2)班"},
+            {"星期": "周二", "时间": "09:00-09:45", "课程": "数学", "班级": "高一(3)班"},
+            {"星期": "周二", "时间": "10:10-10:55", "课程": "数学", "班级": "高一(1)班"},
+            {"星期": "周三", "时间": "08:00-08:45", "课程": "数学", "班级": "高一(1)班"},
+            {"星期": "周三", "时间": "09:00-09:45", "课程": "数学", "班级": "高一(2)班"},
+            {"星期": "周三", "时间": "14:00-14:45", "课程": "数学", "班级": "高一(3)班"},
+            {"星期": "周四", "时间": "08:00-08:45", "课程": "数学", "班级": "高一(3)班"},
+            {"星期": "周四", "时间": "09:00-09:45", "课程": "数学", "班级": "高一(1)班"},
+            {"星期": "周四", "时间": "10:10-10:55", "课程": "数学", "班级": "高一(2)班"},
+            {"星期": "周五", "时间": "08:00-08:45", "课程": "数学", "班级": "高一(2)班"},
+            {"星期": "周五", "时间": "09:00-09:45", "课程": "数学", "班级": "高一(3)班"},
+            {"星期": "周五", "时间": "14:00-14:45", "课程": "数学", "班级": "高一(1)班"},
+        ]
+        
+        import pandas as pd
+        df_preview = pd.DataFrame(mock_data_preview)
+        st.dataframe(df_preview, use_container_width=True, hide_index=True)
+        
+        # 选择教师
+        if teachers:
+            st.markdown("#### 👨‍🏫 选择教师")
+            teacher_opts_import = {t['id']: f"{t['username']} ({t.get('class_name', '')})" for t in teachers}
+            selected_teacher_import = st.selectbox(
+                "为哪个教师导入课表？",
+                options=list(teacher_opts_import.keys()),
+                format_func=lambda x: teacher_opts_import[x],
+                key="import_teacher_select"
+            )
+            
+            # 清空选项
+            clear_existing = st.checkbox(
+                "清空该教师的现有课表",
+                value=False,
+                help="勾选后，导入前会先删除该教师的所有现有课表"
+            )
+            
+            # 生成Mock数据
+            mock_schedules = [
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 0, "start_time": "08:00", "end_time": "08:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(2)班", "day_of_week": 0, "start_time": "09:00", "end_time": "09:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(3)班", "day_of_week": 0, "start_time": "10:10", "end_time": "10:55"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 0, "start_time": "14:00", "end_time": "14:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(2)班", "day_of_week": 1, "start_time": "08:00", "end_time": "08:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(3)班", "day_of_week": 1, "start_time": "09:00", "end_time": "09:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 1, "start_time": "10:10", "end_time": "10:55"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 2, "start_time": "08:00", "end_time": "08:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(2)班", "day_of_week": 2, "start_time": "09:00", "end_time": "09:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(3)班", "day_of_week": 2, "start_time": "14:00", "end_time": "14:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(3)班", "day_of_week": 3, "start_time": "08:00", "end_time": "08:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 3, "start_time": "09:00", "end_time": "09:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(2)班", "day_of_week": 3, "start_time": "10:10", "end_time": "10:55"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(2)班", "day_of_week": 4, "start_time": "08:00", "end_time": "08:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(3)班", "day_of_week": 4, "start_time": "09:00", "end_time": "09:45"},
+                {"user_id": selected_teacher_import, "course_name": "数学", "class_name": "高一(1)班", "day_of_week": 4, "start_time": "14:00", "end_time": "14:45"},
+            ]
+            
+            if st.button("🚀 开始导入", type="primary", use_container_width=True):
+                with st.spinner("正在导入课表..."):
+                    try:
+                        response = requests.post(
+                            f"{API_BASE_URL}/schedules/batch-import",
+                            headers=get_api_headers(),
+                            json={
+                                "schedules": mock_schedules,
+                                "clear_existing": clear_existing
+                            },
+                            timeout=30
+                        )
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            st.success(f"✅ 导入完成！成功: {result['success']}, 失败: {result['failed']}")
+                            
+                            if result['errors']:
+                                st.warning("⚠️ 部分课程导入失败：")
+                                for error in result['errors']:
+                                    st.error(f"第 {error['index']} 条: {error['error']}")
+                            
+                            # 清除缓存，刷新数据
+                            get_all_schedules.clear()
+                            get_teachers.clear()
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            error_msg = response.json().get("detail", "导入失败")
+                            st.error(f"❌ 导入失败: {error_msg}")
+                    except Exception as e:
+                        st.error(f"❌ 导入错误: {str(e)}")
+        else:
+            st.warning("⚠️ 暂无教师，请先添加教师")
+    
+    else:  # 手动输入JSON
+        st.markdown("#### 📝 输入JSON格式的课表数据")
+        st.markdown("""
+        **数据格式示例：**
+        ```json
+        {
+          "schedules": [
+            {
+              "user_id": 1,
+              "course_name": "数学",
+              "class_name": "高一(1)班",
+              "day_of_week": 0,
+              "start_time": "08:00",
+              "end_time": "08:45"
+            }
+          ],
+          "clear_existing": false
+        }
+        ```
+        
+        **字段说明：**
+        - `user_id`: 教师ID（必填）
+        - `course_name`: 课程名称（必填）
+        - `class_name`: 班级名称（必填）
+        - `day_of_week`: 星期几，0=周一，6=周日（必填）
+        - `start_time`: 开始时间，格式 HH:MM（必填）
+        - `end_time`: 结束时间，格式 HH:MM（必填）
+        - `clear_existing`: 是否清空现有课表（可选，默认false）
+        """)
+        
+        json_input = st.text_area(
+            "粘贴JSON数据",
+            height=300,
+            placeholder='{"schedules": [...], "clear_existing": false}'
+        )
+        
+        clear_existing_json = st.checkbox(
+            "清空现有课表（按教师）",
+            value=False,
+            help="勾选后，导入前会先删除相关教师的所有现有课表"
+        )
+        
+        if st.button("📥 导入JSON数据", type="primary", use_container_width=True):
+            if not json_input.strip():
+                st.error("❌ 请输入JSON数据")
+            else:
+                try:
+                    import json
+                    data = json.loads(json_input)
+                    
+                    # 如果JSON中没有clear_existing，使用复选框的值
+                    if "clear_existing" not in data:
+                        data["clear_existing"] = clear_existing_json
+                    else:
+                        data["clear_existing"] = clear_existing_json or data.get("clear_existing", False)
+                    
+                    # 验证数据格式
+                    if "schedules" not in data:
+                        st.error("❌ JSON格式错误：缺少 'schedules' 字段")
+                    elif not isinstance(data["schedules"], list):
+                        st.error("❌ JSON格式错误：'schedules' 必须是数组")
+                    else:
+                        with st.spinner("正在导入课表..."):
+                            try:
+                                response = requests.post(
+                                    f"{API_BASE_URL}/schedules/batch-import",
+                                    headers=get_api_headers(),
+                                    json=data,
+                                    timeout=30
+                                )
+                                
+                                if response.status_code == 200:
+                                    result = response.json()
+                                    st.success(f"✅ 导入完成！总数: {result['total']}, 成功: {result['success']}, 失败: {result['failed']}")
+                                    
+                                    if result['errors']:
+                                        st.warning("⚠️ 部分课程导入失败：")
+                                        for error in result['errors']:
+                                            st.error(f"第 {error['index']} 条: {error['error']}")
+                                    
+                                    # 清除缓存，刷新数据
+                                    get_all_schedules.clear()
+                                    get_teachers.clear()
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    error_msg = response.json().get("detail", "导入失败")
+                                    st.error(f"❌ 导入失败: {error_msg}")
+                            except Exception as e:
+                                st.error(f"❌ 导入错误: {str(e)}")
+                except json.JSONDecodeError as e:
+                    st.error(f"❌ JSON格式错误: {str(e)}")
+                except Exception as e:
+                    st.error(f"❌ 错误: {str(e)}")

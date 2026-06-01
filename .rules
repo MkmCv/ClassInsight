@@ -1,52 +1,133 @@
-# 项目规则文件
+# ClassInsight 项目规则文件
 
 ## 环境说明
 - **操作系统**: Windows (win32)
-- **Shell**: PowerShell (C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe)
-- **工作目录**: H:\毕业设计\System\classvision-vheat
+- **Shell**: CMD (推荐)
+- **工作目录**: H:\毕业设计\System
 - **Python 环境管理**: Anaconda
-- **Conda 环境名称**: vHeat
+- **Conda 环境名称**: backup
 
-## 重要提示
-- 在执行任何命令时，必须考虑 Windows 环境的特殊性
-- 路径分隔符使用反斜杠 `\` 或正斜杠 `/`（PowerShell 支持两种）
-- 注意 Windows 和 Unix 系统在命令和路径上的差异
+## ⚠️ 重要：运行Python脚本的正确方式
+
+### 必须使用 CMD + conda 环境
+
+所有 Python 脚本（包括后端服务、前端服务、工具脚本等）都**必须**按以下步骤运行：
+
+1. **打开 CMD 终端**（不要使用 PowerShell）
+2. **激活 conda 环境**：
+   ```cmd
+   conda activate backup
+   ```
+3. **进入项目目录**
+4. **运行 Python 脚本**
+
+### 为什么必须用 CMD + conda？
+- PowerShell 可能与 conda 环境有兼容性问题
+- CMD 是 conda 推荐的终端环境
+- 确保 Python 路径和依赖正确加载
+- 避免模块导入错误和路径问题
 
 ## Conda 环境规则
-- **必须使用 conda 环境**: 所有 Python 相关的操作都必须在 `vHeat` conda 环境中进行
+
+- **必须使用 conda 环境**: 所有 Python 相关的操作都必须在 `backup` conda 环境中进行
 - **安装包时的流程**:
-  1. 首先激活 conda 环境: `conda activate vHeat`
+  1. 首先激活 conda 环境: `conda activate backup`
   2. 然后安装包到该环境:
      - 使用 conda: `conda install <package_name>` 或 `conda install -c conda-forge <package_name>`
      - 使用 pip: `pip install <package_name>` (在激活环境后)
-- **执行 Python 脚本前**: 必须确保已激活 `vHeat` 环境
+- **执行 Python 脚本前**: 必须确保已激活 `backup` 环境
 - **创建新终端时**: 如果需要在 conda 环境中执行命令，必须先激活环境
 
-## 开发文档指南
+## 常用命令示例
 
-### 文档存放位置
-项目的所有文档统一归档在项目根目录（`H:\毕业设计\System`）的 `docs/` 目录下（相对于当前目录为 `../docs/`）：
-- `../docs/backend/`: 后端开发相关文档
-- `../docs/frontend/`: 前端开发相关文档
-- `../docs/references/`: 参考资料（开题报告、数据集说明等）
+### 运行后端服务
+```cmd
+conda activate backup
+cd H:\毕业设计\System\backend
+python run.py
+```
 
-### 后端开发必读文档 (优先级从高到低)
-1. **`../docs/backend/BACKEND_REQUIREMENTS.md`**
-   - **类型**: 需求规格说明书
-   - **内容**: 包含详细的 API 接口定义列表、数据库 ER 图设计、核心业务流程（视频处理、分析逻辑）。
-   - **用途**: **后端编码的核心依据**，开发前务必通读。
+### 运行前端服务
+```cmd
+conda activate backup
+cd H:\毕业设计\System\System\frontend
+streamlit run app.py
+```
 
-2. **`../docs/references/数据集与模型总结.md`**
-   - **类型**: 数据与模型参考
-   - **内容**: 定义了 4 类数据集的详细信息、模型的检测类别以及 **全局类别 ID 映射 (Global ID)**。
-   - **用途**: 数据库设计和模型结果处理必须严格遵守此文档中的 **类别 ID 映射**。
+### 运行工具脚本（导入课表）
+```cmd
+conda activate backup
+cd H:\毕业设计\System\backend
+python mock_schedules.py
+```
 
-3. **`../docs/backend/api_spec.yaml`** (或 `API接口文档.md`)
-   - **类型**: 接口规范
-   - **内容**: OpenAPI 3.0 标准的接口定义。
-   - **用途**: 查阅具体的请求/响应字段格式、参数类型。
+### 创建用户
+```cmd
+conda activate backup
+cd H:\毕业设计\System\backend
+python create_super_admin.py
+```
 
-4. **`../docs/backend/开发方案.md`**
-   - **类型**: 架构设计
-   - **内容**: 系统的整体技术栈选择、分层架构设计。
-   - **用途**: 理解系统的宏观架构和技术选型理由。
+## 数据库与课表说明
+
+### 课表数据结构
+课表数据存储在 `schedules` 表中，与用户（教师）通过 `user_id` 关联。
+
+### 为什么教师看不到课表？
+可能的原因：
+1. **课表数据未与正确的用户关联**：确保导入的课表中 `user_id` 与教师的实际 ID 匹配
+2. **API 调用失败**：检查后端服务是否正常运行
+3. **缓存问题**：前端有缓存（60秒），清除浏览器缓存或等待缓存过期
+4. **用户 ID 不匹配**：导入脚本默认查找 `teacher001`，确保该用户存在
+
+### 验证课表是否成功导入
+
+**方法1：通过 API 文档查询**
+1. 访问 `http://localhost:8000/api/docs`
+2. 找到 `GET /api/v1/schedules/my` 接口
+3. 点击"Try it out"并"Execute"
+4. 查看返回的课表数据
+
+**方法2：直接查询数据库**
+```cmd
+conda activate backup
+cd H:\毕业设计\System\backend
+python
+```
+然后执行：
+```python
+from app.core.database import AsyncSessionLocal
+from app.models.schedule import Schedule
+from sqlalchemy import select
+import asyncio
+
+async def check_schedules():
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Schedule))
+        schedules = result.scalars().all()
+        print(f"总课表数：{len(schedules)}")
+        for s in schedules:
+            print(f"ID: {s.id}, 教师ID: {s.user_id}, 课程: {s.course_name}, 班级: {s.class_name}")
+
+asyncio.run(check_schedules())
+```
+
+## 项目结构说明
+```
+H:\毕业设计\System\
+├── backend/              # 后端 FastAPI 服务
+│   ├── app/             # 应用代码
+│   ├── storage/         # 数据存储（数据库、视频）
+│   ├── run.py           # 启动脚本
+│   └── mock_schedules.py # 课表导入脚本
+├── System/frontend/     # 前端 Streamlit 应用
+│   ├── pages/          # 页面文件
+│   └── app.py          # 主应用
+└── docs/               # 文档
+```
+
+## 开发提示
+- 每次修改代码后，需要重启后端/前端服务才能生效
+- 前端有数据缓存，修改后端数据后可能需要等待或清除缓存
+- 所有 Python 相关操作必须在 `backup` 环境中进行
+- 使用 CMD 而不是 PowerShell 运行 Python 脚本

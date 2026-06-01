@@ -2,7 +2,7 @@
 验证码模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Index, CheckConstraint
 from ..core.database import Base
 
 
@@ -17,6 +17,12 @@ class VerificationCode(Base):
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        # 常用查询：按 email + purpose 查最新可用验证码
+        Index("idx_verification_email_purpose_created", "email", "purpose", "created_at"),
+        CheckConstraint("length(code) = 6", name="ck_verification_code_len_6"),
+    )
     
     def __repr__(self):
         return f"<VerificationCode(email='{self.email}', purpose='{self.purpose}')>"

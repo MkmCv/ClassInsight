@@ -416,3 +416,150 @@ async def get_teachers_for_schedule(
         for t in teachers
     ]
 
+
+# ==================== 批量导入课表 ====================
+
+from pydantic import BaseModel, Field, validator
+from typing import List as ListType
+
+
+class BatchScheduleItem(BaseModel):
+    """批量导入的单个课表项"""
+    user_id: int = Field(..., description="教师ID")
+    course_name: str = Field(..., max_length=50, description="课程名称")
+    class_name: str = Field(..., max_length=50, description="班级名称")
+    day_of_week: int = Field(..., ge=0, le=6, description="星期几，0=周一，6=周日")
+    start_time: str = Field(..., description="开始时间，格式：HH:MM")
+    end_time: str = Field(..., description="结束时间，格式：HH:MM")
+    
+    @validator('start_time', 'end_time')
+    def validate_time_format(cls, v):
+        """验证时间格式"""
+        try:
+            parts = v.split(':')
+            if len(parts) != 2:
+                raise ValueError("时间格式错误，应为 HH:MM")
+            hour, minute = int(parts[0]), int(parts[1])
+            if not (0 <= hour < 24 and 0 <= minute < 60):
+                raise ValueError("时间值超出范围")
+            return v
+        except ValueError as e:
+            raise ValueError(f"时间格式错误: {e}")
+
+
+class BatchScheduleRequest(BaseModel):
+    """批量导入课表请求"""
+    schedules: ListType[BatchScheduleItem] = Field(..., description="课表列表")
+    clear_existing: bool = Field(False, description="是否清空现有课表（按教师）")
+
+
+class BatchScheduleResponse(BaseModel):
+    """批量导入响应"""
+    total: int = Field(..., description="总数")
+    success: int = Field(..., description="成功数")
+    failed: int = Field(..., description="失败数")
+    errors: ListType[dict] = Field(default_factory=list, description="错误详情")
+
+
+@router.post("/batch-import", response_model=BatchScheduleResponse)
+async def batch_import_schedules(
+    request: BatchScheduleRequest,
+    admin: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    批量导入课表（管理员专用）
+    
+    支持一次性导入多个教师的课表，可选择是否清空现有课表
+    """
+    success_count = 0
+    failed_count = 0
+    errors = []
+    
+    # 按教师分组，如果clear_existing=True，先清空
+    if request.clear_existing:
+        teacher_ids = set(item.user_id for item in request.schedules)
+        for teacher_id in teacher_ids:
+            result = await db.execute(
+                select(Schedule).where(Schedule.user_id == teacher_id)
+            )
+            existing = result.scalars().all()
+            for schedule in existing:
+                await db.delete(schedule)
+        await db.commit()
+    
+    # 批量创建课表
+    for idx, item in enumerate(request.schedules):
+        try:
+            # 验证教师存在
+            result = await db.execute(select(User).where(User.id == item.user_id))
+            teacher = result.scalar_one_or_none()
+            if not teacher:
+                failed_count += 1
+                errors.append({
+                    "index": idx + 1,
+                    "error": f"教师ID {item.user_id} 不存在"
+                })
+                continue
+            
+            # 解析时间
+            start_parts = item.start_time.split(':')
+            end_parts = item.end_time.split(':')
+            start_time_obj = time(int(start_parts[0]), int(start_parts[1]))
+            end_time_obj = time(int(end_parts[0]), int(end_parts[1]))
+            
+            # 检查时间冲突
+            result = await db.execute(
+                select(Schedule).where(and_(
+                    Schedule.user_id == item.user_id,
+                    Schedule.day_of_week == item.day_of_week,
+                    Schedule.start_time < end_time_obj,
+                    Schedule.end_time > start_time_obj
+                ))
+            )
+            if result.scalar_one_or_none():
+                failed_count += 1
+                errors.append({
+                    "index": idx + 1,
+                    "error": f"时间段冲突：{item.day_of_week} {item.start_time}-{item.end_time}"
+                })
+                continue
+            
+            # 创建课表
+            schedule = Schedule(
+                user_id=item.user_id,
+                course_name=item.course_name,
+                class_name=item.class_name,
+                day_of_week=item.day_of_week,
+                start_time=start_time_obj,
+                end_time=end_time_obj
+            )
+            db.add(schedule)
+            success_count += 1
+            
+        except Exception as e:
+            failed_count += 1
+            errors.append({
+                "index": idx + 1,
+                "error": str(e)
+            })
+    
+    # 提交所有更改
+    try:
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        return BatchScheduleResponse(
+            total=len(request.schedules),
+            success=0,
+            failed=len(request.schedules),
+            errors=[{"error": f"数据库错误: {str(e)}"}]
+        )
+    
+    return BatchScheduleResponse(
+        total=len(request.schedules),
+        success=success_count,
+        failed=failed_count,
+        errors=errors
+    )
+

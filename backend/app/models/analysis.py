@@ -2,7 +2,19 @@
 分析结果模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Text, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Float,
+    ForeignKey,
+    Text,
+    JSON,
+    Index,
+    UniqueConstraint,
+    CheckConstraint,
+)
 from sqlalchemy.orm import relationship
 from ..core.database import Base
 
@@ -14,9 +26,9 @@ class AnalysisTimeline(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     video_id = Column(Integer, ForeignKey("videos.id", ondelete="CASCADE"), nullable=False, index=True)
     
-    # 时间信息
-    timestamp = Column(Integer, nullable=False)  # 时间戳（秒）
-    window_size = Column(Integer, default=10)    # 窗口大小（秒）
+    # 时间信息：timestamp 为时间窗起点（秒），与 video_processor 中 window_key 一致
+    timestamp = Column(Integer, nullable=False)
+    window_size = Column(Integer, default=10)  # 窗长（秒）；当前写入多为 10
     
     # 行为统计（JSON格式存储每个类别的数量）
     # 格式: {"discuss": 3, "hand-raising": 1, "read": 15, ...}
@@ -28,6 +40,20 @@ class AnalysisTimeline(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
+    __table_args__ = (
+        # 常用查询：按 video_id + 时间范围拉取时间线
+        Index("idx_analysis_timeline_video_timestamp", "video_id", "timestamp"),
+        # 防止同一窗口重复写入（对新建数据库生效；现有库不强制，但可避免未来重复）
+        UniqueConstraint(
+            "video_id",
+            "timestamp",
+            "window_size",
+            name="uq_analysis_timeline_video_timestamp_window",
+        ),
+        CheckConstraint("timestamp >= 0", name="ck_analysis_timeline_timestamp_nonneg"),
+        CheckConstraint("window_size > 0", name="ck_analysis_timeline_window_size_pos"),
+    )
+
     # 关联关系
     video = relationship("Video", back_populates="timeline")
     
@@ -64,6 +90,22 @@ class AnalysisSummary(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    __table_args__ = (
+        # 指标范围约束（对新建数据库生效）
+        CheckConstraint(
+            "(interaction_rate IS NULL) OR (interaction_rate >= 0 AND interaction_rate <= 1)",
+            name="ck_analysis_summary_interaction_rate_0_1",
+        ),
+        CheckConstraint(
+            "(attention_rate IS NULL) OR (attention_rate >= 0 AND attention_rate <= 1)",
+            name="ck_analysis_summary_attention_rate_0_1",
+        ),
+        CheckConstraint(
+            "(engagement_score IS NULL) OR (engagement_score >= 0 AND engagement_score <= 1)",
+            name="ck_analysis_summary_engagement_score_0_1",
+        ),
+    )
+
     # 关联关系
     video = relationship("Video", back_populates="summary")
     
@@ -92,6 +134,17 @@ class AnalysisAnomaly(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
+    __table_args__ = (
+        Index("idx_analysis_anomalies_video_time", "video_id", "start_time", "end_time"),
+        CheckConstraint("start_time >= 0", name="ck_analysis_anomalies_start_time_nonneg"),
+        CheckConstraint("end_time >= 0", name="ck_analysis_anomalies_end_time_nonneg"),
+        CheckConstraint("end_time > start_time", name="ck_analysis_anomalies_time_range"),
+        CheckConstraint(
+            "severity IN ('low','medium','high')",
+            name="ck_analysis_anomalies_severity_enum",
+        ),
+    )
+
     # 关联关系
     video = relationship("Video", back_populates="anomalies")
     

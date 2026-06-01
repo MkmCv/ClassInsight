@@ -9,6 +9,7 @@ import sys
 # 添加父目录到路径，以便导入共享的 CSS
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from frontend.utils import load_css
+from utils import save_super_admin_auth
 
 # ==================== API 配置 ====================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -103,6 +104,9 @@ with st.form("super_admin_login", clear_on_submit=False):
                     st.session_state['super_admin_auth'] = True
                     st.session_state['super_admin_user'] = result.get("user")
                     st.session_state['super_admin_token'] = result.get("access_token")
+                    
+                    # 保存认证信息到文件（支持刷新后恢复）
+                    save_super_admin_auth()
                     
                     st.success("登录成功！正在跳转...")
                     st.rerun()

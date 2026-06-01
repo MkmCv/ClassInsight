@@ -8,7 +8,7 @@ from datetime import datetime
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar
+from utils import load_css, render_sidebar, check_authentication
 from mock_data import MOCK_USERS_LIST
 
 st.set_page_config(page_title="用户管理 - ClassInsight", page_icon="👤", layout="wide")
@@ -17,9 +17,8 @@ st.set_page_config(page_title="用户管理 - ClassInsight", page_icon="👤", l
 load_css()
 
 # ==================== 权限检查 ====================
-if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
-    st.warning("请先登录")
-    st.switch_page("app.py")
+# 检查登录（自动从 localStorage 恢复）
+check_authentication()
 
 # 渲染侧边栏（用户信息 + 退出登录）
 render_sidebar()
@@ -295,6 +294,11 @@ elif st.session_state['filter_status'] == "禁用":
 # 获取用户列表（使用缓存）
 headers_tuple = tuple(sorted(get_api_headers().items()))
 users = get_users(headers_tuple, search=search, role=role, is_active=is_active)
+
+# 前端过滤：确保不显示超级管理员（双重保护）
+if users:
+    users = [u for u in users if u.get('role') != 'super_admin']
+    
 if users:
     # 转换为DataFrame以便展示
     df = pd.DataFrame(users)
@@ -333,8 +337,12 @@ if users:
     # ==================== 批量操作区域 ====================
     st.markdown("### 📦 批量操作")
     
-    # 构建可操作用户列表（排除当前登录用户）
-    other_users = [u for u in users if u.get('id') != current_user.get('id')]
+    # 构建可操作用户列表（排除当前登录用户和超级管理员）
+    other_users = [
+        u for u in users 
+        if u.get('id') != current_user.get('id') 
+        and u.get('role') != 'super_admin'  # 排除超级管理员
+    ]
     
     if other_users:
         # 批量选择
@@ -467,12 +475,20 @@ if users:
         
         selected_user = next((u for u in users if u['id'] == selected_user_id), None)
         
+        # 检查是否为超级管理员（双重保护）
+        if selected_user and selected_user.get('role') == 'super_admin':
+            st.error("⚠️ 管理员不能管理超级管理员")
+            st.stop()
+        
         # 操作按钮行
         btn_row1 = st.columns([1, 1, 1, 1, 1, 1])
         
         with btn_row1[0]:
             if st.button("✏️ 编辑用户", type="primary", use_container_width=True):
-                st.session_state['show_edit_user'] = selected_user_id
+                if selected_user and selected_user.get('role') == 'super_admin':
+                    st.error("⚠️ 管理员不能编辑超级管理员")
+                else:
+                    st.session_state['show_edit_user'] = selected_user_id
         
         with btn_row1[1]:
             if st.button("🔄 切换状态", use_container_width=True):
@@ -486,11 +502,17 @@ if users:
         
         with btn_row1[2]:
             if st.button("🔑 重置密码", use_container_width=True):
-                st.session_state['show_reset_password'] = selected_user_id
+                if selected_user and selected_user.get('role') == 'super_admin':
+                    st.error("⚠️ 管理员不能重置超级管理员密码")
+                else:
+                    st.session_state['show_reset_password'] = selected_user_id
         
         with btn_row1[3]:
             if st.button("🔓 解锁账户", use_container_width=True):
-                st.session_state['show_unlock'] = selected_user_id
+                if selected_user and selected_user.get('role') == 'super_admin':
+                    st.error("⚠️ 管理员不能管理超级管理员")
+                else:
+                    st.session_state['show_unlock'] = selected_user_id
         
         with btn_row1[4]:
             if st.button("📋 登录历史", use_container_width=True):
@@ -498,7 +520,10 @@ if users:
         
         with btn_row1[5]:
             if st.button("🗑️ 删除用户", type="secondary", use_container_width=True):
-                st.session_state['confirm_delete'] = selected_user_id
+                if selected_user and selected_user.get('role') == 'super_admin':
+                    st.error("⚠️ 管理员不能删除超级管理员")
+                else:
+                    st.session_state['confirm_delete'] = selected_user_id
         
         # 编辑用户表单
         if st.session_state.get('show_edit_user') == selected_user_id and selected_user:

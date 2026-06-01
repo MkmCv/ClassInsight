@@ -8,16 +8,14 @@ import os
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar, get_api_headers
+from utils import load_css, render_sidebar, get_api_headers, check_super_admin_auth
 
 st.set_page_config(page_title="模型管理 - 超级管理员", page_icon="🤖", layout="wide")
 
 load_css()
 
 # ==================== 权限检查 ====================
-if 'super_admin_auth' not in st.session_state or not st.session_state['super_admin_auth']:
-    st.warning("请先登录")
-    st.switch_page("../app.py")
+check_super_admin_auth()
 
 render_sidebar()
 

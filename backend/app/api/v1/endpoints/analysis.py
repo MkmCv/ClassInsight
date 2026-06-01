@@ -128,6 +128,7 @@ async def get_analysis_timeline(
     获取时间序列数据（用于可视化）
     
     - **window**: 时间窗口大小（秒），可选值：10, 60（默认10）
+      注意：处理管线当前仅写入 window_size=10；若需 60s 应对数据二次聚合或扩展写入。
     """
     video = await verify_video_access(video_id, current_user, db)
     
@@ -135,7 +136,7 @@ async def get_analysis_timeline(
     if window not in [10, 60]:
         window = 10
     
-    # 获取时间线数据
+    # 按库中已存储的 window_size 过滤（与 process_video_task 写入一致）
     result = await db.execute(
         select(AnalysisTimeline)
         .where(

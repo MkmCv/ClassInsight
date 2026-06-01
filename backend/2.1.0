@@ -1,9 +1,0 @@
-Looking in indexes: https://pypi.tuna.tsinghua.edu.cn/simple/
-Collecting email-validator
-  Downloading https://pypi.tuna.tsinghua.edu.cn/packages/de/15/545e2b6cf2e3be84bc1ed85613edd75b8aea69807a71c26f4ca6a9258e82/email_validator-2.3.0-py3-none-any.whl (35 kB)
-Collecting dnspython>=2.0.0 (from email-validator)
-  Downloading https://pypi.tuna.tsinghua.edu.cn/packages/ba/5a/18ad964b0086c6e62e2e7500f7edc89e3faa45033c71c1893d34eed2b2de/dnspython-2.8.0-py3-none-any.whl (331 kB)
-Requirement already satisfied: idna>=2.0.0 in f:\anaconda3\envs\backup\lib\site-packages (from email-validator) (3.7)
-Installing collected packages: dnspython, email-validator
-
-Successfully installed dnspython-2.8.0 email-validator-2.3.0

@@ -1,9 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import time
 import os
 import requests
+import json
 from mock_data import MOCK_USER
-from utils import load_css
+from utils import load_css, save_auth_to_file
 
 # ==================== API 配置 ====================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -203,6 +205,9 @@ def login():
                                 st.session_state['access_token'] = result.get('access_token')
                                 st.session_state['refresh_token'] = result.get('refresh_token')
                                 st.session_state['login_attempt_info'] = None
+                                
+                                # 保存认证信息到文件（支持刷新后恢复）
+                                save_auth_to_file()
                                 
                                 st.success("✅ 登录成功！正在跳转...")
                                 time.sleep(0.5)

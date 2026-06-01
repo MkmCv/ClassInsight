@@ -54,6 +54,9 @@ async def get_all_users(
     """
     query = select(User)
     
+    # 排除超级管理员（管理员不能管理超级管理员）
+    query = query.where(User.role != UserRole.SUPER_ADMIN.value)
+    
     # 角色筛选
     if role:
         query = query.where(User.role == role)
@@ -121,6 +124,13 @@ async def update_user(
             detail="用户不存在"
         )
     
+    # 禁止管理员修改超级管理员
+    if user.role == UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员不能修改超级管理员"
+        )
+    
     # 更新邮箱（需要检查唯一性）
     if user_data.email is not None and user_data.email != user.email:
         # 检查邮箱是否已被其他用户使用
@@ -134,9 +144,15 @@ async def update_user(
             )
         user.email = user_data.email
     
-    # 更新角色
-    if user_data.role is not None and user_data.role in [UserRole.TEACHER.value, UserRole.ADMIN.value]:
-        user.role = user_data.role
+    # 更新角色（禁止设置为超级管理员）
+    if user_data.role is not None:
+        if user_data.role == UserRole.SUPER_ADMIN.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="管理员不能将用户设置为超级管理员"
+            )
+        if user_data.role in [UserRole.TEACHER.value, UserRole.ADMIN.value]:
+            user.role = user_data.role
     
     # 更新单位
     if user_data.unit is not None:
@@ -180,6 +196,13 @@ async def delete_user(
             detail="用户不存在"
         )
     
+    # 禁止管理员删除超级管理员
+    if user.role == UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员不能删除超级管理员"
+        )
+    
     await db.delete(user)
     await db.commit()
     
@@ -203,6 +226,13 @@ async def reset_user_password(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
+        )
+    
+    # 禁止管理员重置超级管理员密码
+    if user.role == UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员不能重置超级管理员密码"
         )
     
     user.password_hash = get_password_hash(new_password)
@@ -391,6 +421,14 @@ async def batch_delete_users(
             detail="未找到要删除的用户"
         )
     
+    # 检查是否包含超级管理员
+    super_admins = [u for u in users if u.role == UserRole.SUPER_ADMIN.value]
+    if super_admins:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员不能删除超级管理员"
+        )
+    
     # 删除用户
     for user in users:
         await db.delete(user)
@@ -422,9 +460,13 @@ async def batch_update_users(
             detail="未找到要更新的用户"
         )
     
-    # 批量更新
+    # 批量更新（跳过超级管理员）
     updated_count = 0
     for user in users:
+        # 跳过超级管理员
+        if user.role == UserRole.SUPER_ADMIN.value:
+            continue
+        
         updated = False
         
         if request.role and request.role in [UserRole.TEACHER.value, UserRole.ADMIN.value]:
@@ -465,6 +507,13 @@ async def toggle_user_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在"
+        )
+    
+    # 禁止管理员修改超级管理员状态
+    if user.role == UserRole.SUPER_ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="管理员不能修改超级管理员状态"
         )
     
     # 切换状态

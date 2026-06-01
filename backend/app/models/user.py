@@ -2,7 +2,7 @@
 用户模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Enum, CheckConstraint
 from sqlalchemy.orm import relationship
 import enum
 from ..core.database import Base
@@ -29,6 +29,14 @@ class User(Base):
     is_active = Column(Integer, default=1, nullable=False)  # 1=启用, 0=禁用
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        CheckConstraint("is_active IN (0, 1)", name="ck_users_is_active_0_1"),
+        CheckConstraint(
+            "role IN ('teacher','admin','super_admin')",
+            name="ck_users_role_enum",
+        ),
+    )
     
     # 关联关系
     videos = relationship("Video", back_populates="user", cascade="all, delete-orphan")

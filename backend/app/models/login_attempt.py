@@ -2,7 +2,7 @@
 登录尝试记录模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Index
+from sqlalchemy import Column, Integer, String, DateTime, Index, UniqueConstraint
 from ..core.database import Base
 
 
@@ -22,6 +22,8 @@ class LoginAttempt(Base):
     # 复合索引：用户名+IP
     __table_args__ = (
         Index('idx_username_ip', 'username', 'ip_address'),
+        # 业务逻辑假设同一 username+ip 只有一条记录（防止出现重复行导致风控异常）
+        UniqueConstraint('username', 'ip_address', name='uq_login_attempts_username_ip'),
     )
     
     def __repr__(self):

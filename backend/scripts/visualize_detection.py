@@ -21,7 +21,7 @@ from datetime import datetime
 import numpy as np
 
 # 添加项目路径
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # 颜色配置（BGR格式）
 COLORS = {
@@ -322,8 +322,8 @@ def main():
     
     args = parser.parse_args()
     
-    # 路径配置
-    script_dir = Path(__file__).parent
+    # 路径配置（脚本位于 backend/scripts/，项目根为其上一级 backend/）
+    script_dir = Path(__file__).parent.parent
     weights_dir = script_dir / 'app' / 'ml' / 'weights'
     videos_dir = script_dir / 'storage' / 'videos'
     output_dir = script_dir / 'storage' / 'visualization'

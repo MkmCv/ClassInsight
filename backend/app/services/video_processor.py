@@ -30,6 +30,10 @@ async def process_video_task(video_id: int, video_path: str):
     3. 聚合检测结果
     4. 存储分析数据
     5. 更新视频状态
+
+    时间聚合（详见仓库 docs/TIME_AGGREGATION.md）:
+    固定 window_size 秒的非重叠窗，window_key = (timestamp // window_size) * window_size；
+    每窗内累加原始类别与分类后师生行为，最后每窗写入一条 AnalysisTimeline。
     """
     # 创建新的数据库会话
     AsyncSessionLocal = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
@@ -73,11 +77,13 @@ async def process_video_task(video_id: int, video_path: str):
             from ..ml.behavior_classifier import get_classifier
             behavior_classifier = get_classifier()
             
-            # 抽帧分析
+            # 抽帧分析（仅对采样帧做检测；聚合只影响「每窗计数」，不强制每秒钟都有样本）
             frame_interval = int(fps / settings.VIDEO_PROCESS_FPS) if fps > 0 else 30
             current_frame = 0
-            window_size = 10  # 10秒窗口
-            window_data = {}  # 按时间窗口聚合的数据
+            # 时间窗长度（秒）；与 behavior_analyzer 中 lag*10 的「秒」约定一致
+            window_size = 10
+            # key = 窗起点秒数，value = 该窗内累加的计数与检测列表
+            window_data = {}
             all_behavior_counts = {}  # 全局统计（原始类别）
             classified_behaviors = []  # 分类后的行为序列
             student_behavior_counts = {}  # 学生行为统计
@@ -89,7 +95,7 @@ async def process_video_task(video_id: int, video_path: str):
                     break
                 
                 if current_frame % frame_interval == 0:
-                    # 进行检测
+                    # 当前帧在视频中的时间（秒）→ 对齐到非重叠时间桶的起点，例如 23s → 20
                     timestamp = int(current_frame / fps) if fps > 0 else 0
                     window_key = (timestamp // window_size) * window_size
                     
@@ -140,7 +146,7 @@ async def process_video_task(video_id: int, video_path: str):
                         teacher_behavior_counts[teacher_behavior]["count"] += 1
                         teacher_behavior_counts[teacher_behavior]["frames"].add(timestamp)
                     
-                    # 聚合到时间窗口（保留原始检测数据用于兼容性）
+                    # 时间聚合：同一 window_key 下跨多帧累加，得到「该 10s 段」的统计
                     if window_key not in window_data:
                         window_data[window_key] = {
                             "behavior_counts": {},
@@ -197,7 +203,7 @@ async def process_video_task(video_id: int, video_path: str):
             
             cap.release()
             
-            # 存储时间线数据（保持原有格式，同时添加分类后的数据作为额外字段）
+            # 每窗一行入库：timestamp 即为 window_key（窗左端，单位秒）
             for timestamp, data in window_data.items():
                 # 保持原有格式：直接使用原始 behavior_counts（确保前端兼容）
                 behavior_counts = data["behavior_counts"].copy()

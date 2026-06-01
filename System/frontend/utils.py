@@ -1,5 +1,9 @@
 import os
 import streamlit as st
+import json
+import hashlib
+from pathlib import Path
+from datetime import datetime, timedelta
 
 def load_css(file_name="style.css"):
     """
@@ -297,16 +301,100 @@ def render_sidebar():
         
         # 退出登录按钮
         if st.button("🚪 退出登录", use_container_width=True, type="secondary"):
+            # 清除认证文件
+            clear_auth_file()
+            
             # 清除所有session状态
             st.session_state['authentication_status'] = False
             st.session_state['user'] = None
             st.session_state['access_token'] = None
+            st.session_state['auth_loaded_from_file'] = False
             # 清除其他可能的缓存
             for key in list(st.session_state.keys()):
-                if key not in ['authentication_status', 'user', 'access_token']:
+                if key not in ['authentication_status', 'user', 'access_token', 'auth_loaded_from_file']:
                     del st.session_state[key]
             st.success("已退出登录，正在跳转...")
             st.switch_page("app.py")
+
+
+def get_session_file_path():
+    """获取 session 文件路径"""
+    # 使用临时目录存储 session
+    temp_dir = Path("./temp_sessions")
+    temp_dir.mkdir(exist_ok=True)
+    
+    # 使用固定的文件名（单用户模式，适合教学演示系统）
+    # Streamlit 的 session ID 在刷新时会变化，所以不能依赖它
+    session_file = temp_dir / "last_login.json"
+    return session_file
+
+
+def save_auth_to_file():
+    """保存认证信息到文件"""
+    try:
+        session_file = get_session_file_path()
+        auth_data = {
+            'user': st.session_state.get('user'),
+            'access_token': st.session_state.get('access_token'),
+            'refresh_token': st.session_state.get('refresh_token'),
+            'timestamp': datetime.now().isoformat()
+        }
+        with open(session_file, 'w', encoding='utf-8') as f:
+            json.dump(auth_data, f)
+    except Exception as e:
+        pass  # 静默失败
+
+
+def load_auth_from_file():
+    """从文件加载认证信息"""
+    try:
+        session_file = get_session_file_path()
+        
+        if session_file.exists():
+            with open(session_file, 'r', encoding='utf-8') as f:
+                auth_data = json.load(f)
+            
+            # 检查是否过期（24小时）
+            timestamp = datetime.fromisoformat(auth_data.get('timestamp', ''))
+            if datetime.now() - timestamp < timedelta(hours=24):
+                st.session_state['user'] = auth_data.get('user')
+                st.session_state['access_token'] = auth_data.get('access_token')
+                st.session_state['refresh_token'] = auth_data.get('refresh_token')
+                st.session_state['authentication_status'] = True
+                return True
+            else:
+                # 过期，删除文件
+                session_file.unlink()
+        return False
+    except Exception as e:
+        return False
+
+
+def clear_auth_file():
+    """清除认证文件"""
+    try:
+        session_file = get_session_file_path()
+        if session_file.exists():
+            session_file.unlink()
+    except:
+        pass
+
+
+def check_authentication():
+    """检查用户是否已登录，如果未登录则跳转到登录页"""
+    # 只在第一次检查时尝试从文件恢复
+    if 'auth_loaded_from_file' not in st.session_state:
+        st.session_state['auth_loaded_from_file'] = load_auth_from_file()
+    
+    # 检查是否已登录
+    if not st.session_state.get('authentication_status', False):
+        st.switch_page("app.py")
+    
+    # 更新文件（刷新时间戳）
+    if st.session_state.get('authentication_status'):
+        save_auth_to_file()
+    
+    return True
 
 
 def get_api_headers():

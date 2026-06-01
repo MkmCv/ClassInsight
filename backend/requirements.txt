@@ -57,6 +57,12 @@ scipy>=1.11.0  # 用于统计计算（皮尔逊相关系数）
 httpx>=0.26.0  # HTTP客户端
 orjson>=3.9.10  # 快速JSON序列化
 
+# === AI Agent (Optional) ===
+# 如果使用 AI 教学顾问功能，需要安装以下依赖
+dashscope>=1.17.0  # 通义千问 SDK
+langgraph>=0.0.20  # LangGraph 工作流框架
+langchain-core>=0.1.0  # LangChain 核心库
+
 # === Development ===
 # pytest>=7.4.0
 # pytest-asyncio>=0.21.0

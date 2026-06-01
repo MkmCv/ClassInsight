@@ -2,7 +2,19 @@
 视频模型
 """
 from datetime import datetime, date
-from sqlalchemy import Column, Integer, String, DateTime, Date, Float, ForeignKey, Text, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Date,
+    Float,
+    ForeignKey,
+    Text,
+    JSON,
+    Index,
+    CheckConstraint,
+)
 from sqlalchemy.orm import relationship
 import enum
 from ..core.database import Base
@@ -50,6 +62,17 @@ class Video(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     processed_at = Column(DateTime, nullable=True)  # 处理完成时间
     
+    __table_args__ = (
+        # 常用过滤：用户的视频列表 + 日期筛选
+        Index("idx_videos_user_lesson_date", "user_id", "lesson_date"),
+        # 进度范围约束（对新建数据库生效）
+        CheckConstraint("progress >= 0 AND progress <= 1", name="ck_videos_progress_0_1"),
+        CheckConstraint(
+            "status IN ('uploaded','processing','completed','failed')",
+            name="ck_videos_status_enum",
+        ),
+    )
+
     # 关联关系
     user = relationship("User", back_populates="videos")
     timeline = relationship("AnalysisTimeline", back_populates="video", cascade="all, delete-orphan")

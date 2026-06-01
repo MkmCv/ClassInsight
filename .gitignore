@@ -47,3 +47,16 @@ backend/storage/**/*.mov
 # 其他
 *.bak
 *.backup
+
+# 临时会话 / 登录状态
+**/temp_sessions/
+**/last_login.json
+
+# 工具 / IDE 生成
+.specstory/
+.codex
+.cursorindexingignore
+
+# 误生成的版本号文件
+backend/2.1.0
+

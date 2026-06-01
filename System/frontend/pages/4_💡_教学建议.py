@@ -8,15 +8,14 @@ import time
 
 # 将父目录加入 path 以便导入 utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar
+from utils import load_css, render_sidebar, check_authentication
 
 st.set_page_config(page_title="教学建议 - ClassInsight", page_icon="💡", layout="wide")
 
 load_css()
 
-if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
-    st.warning("请先登录")
-    st.switch_page("app.py")
+# 检查登录（自动从 localStorage 恢复）
+check_authentication()
 
 # 渲染侧边栏（用户信息 + 退出登录）
 render_sidebar()

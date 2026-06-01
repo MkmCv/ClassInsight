@@ -56,13 +56,13 @@ async def get_behavior_summary(video_id: int) -> Dict[str, Any]:
 
 async def get_behavior_timeline(video_id: int) -> List[Dict[str, Any]]:
     """
-    获取课堂行为时间线数据
+    获取课堂行为时间线数据（库中每行已是一段时间窗的聚合结果，此处按行读出并派生指标）
     
     Args:
         video_id: 视频ID
         
     Returns:
-        按时间窗口聚合的行为数据列表
+        时间线列表（与 AnalysisTimeline 行对应）
     """
     async with AsyncSessionLocal() as db:
         result = await db.execute(

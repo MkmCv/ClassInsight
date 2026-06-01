@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 # 添加项目路径
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.core.database import init_db
 from app.models import User, Video, AnalysisTimeline, AnalysisSummary, AnalysisAnomaly, Schedule, VerificationCode
@@ -23,8 +23,8 @@ async def main():
         print("\n已创建的表：")
         print("  - users")
         print("  - videos")
-        print("  - analysis_timelines")
-        print("  - analysis_summaries")
+        print("  - analysis_timeline")
+        print("  - analysis_summary")
         print("  - analysis_anomalies")
         print("  - schedules")
         print("  - verification_codes ✅")

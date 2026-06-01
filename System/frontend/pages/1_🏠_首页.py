@@ -6,16 +6,15 @@ from datetime import datetime, date, timedelta
 
 # 修复路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import load_css, render_sidebar, get_api_headers
+from utils import load_css, render_sidebar, get_api_headers, check_authentication
 from mock_data import MOCK_VIDEOS
 
 st.set_page_config(page_title="首页 - ClassInsight", page_icon="🏠", layout="wide")
 
 load_css()
 
-# 检查登录
-if 'authentication_status' not in st.session_state or not st.session_state['authentication_status']:
-    st.switch_page("app.py")
+# 检查登录（自动从 localStorage 恢复）
+check_authentication()
 
 # ==================== API 配置 ====================
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000/api/v1")
@@ -25,8 +24,8 @@ USE_BACKEND_API = True
 render_sidebar()
 
 # ==================== 数据获取函数 ====================
-@st.cache_data(ttl=60)
-def fetch_week_schedule(_headers, target_date_str):
+# @st.cache_data(ttl=60)  # 暂时禁用缓存，确保能获取到数据
+def fetch_week_schedule(_headers, target_date_str, user_id=None):
     """获取周课表"""
     if not USE_BACKEND_API:
         # Mock数据
@@ -58,19 +57,19 @@ def fetch_week_schedule(_headers, target_date_str):
     try:
         response = requests.get(
             f"{API_BASE_URL}/schedules/week",
-            headers=_headers,
+            headers=dict(_headers),
             params={"target_date": target_date_str},
             timeout=5
         )
         if response.status_code == 200:
             return response.json()
         return None
-    except:
+    except Exception as e:
         return None
 
 
-@st.cache_data(ttl=60)
-def fetch_today_schedule(_headers):
+# @st.cache_data(ttl=60)  # 暂时禁用缓存，确保能获取到数据
+def fetch_today_schedule(_headers, user_id=None):
     """获取今日课表"""
     if not USE_BACKEND_API:
         return [
@@ -85,13 +84,13 @@ def fetch_today_schedule(_headers):
     try:
         response = requests.get(
             f"{API_BASE_URL}/schedules/today",
-            headers=_headers,
+            headers=dict(_headers),
             timeout=5
         )
         if response.status_code == 200:
             return response.json()
         return []
-    except:
+    except Exception as e:
         return []
 
 
@@ -137,32 +136,51 @@ st.markdown("### 📅 智能课表日历")
 # 日期选择器
 col_picker, col_nav, col_spacer = st.columns([2, 2, 4])
 
+# 初始化日历日期（使用辅助键避免与 widget key 冲突）
+if 'calendar_target_date' not in st.session_state:
+    st.session_state['calendar_target_date'] = date.today()
+
+# 处理导航按钮点击（在创建 widget 之前）
+if 'nav_action' in st.session_state:
+    nav_action = st.session_state.pop('nav_action')
+    if nav_action == 'prev_week':
+        st.session_state['calendar_target_date'] = st.session_state.get('calendar_target_date', date.today()) - timedelta(days=7)
+    elif nav_action == 'today':
+        st.session_state['calendar_target_date'] = date.today()
+    elif nav_action == 'next_week':
+        st.session_state['calendar_target_date'] = st.session_state.get('calendar_target_date', date.today()) + timedelta(days=7)
+
 with col_picker:
+    # 使用 calendar_target_date 作为初始值
     selected_date = st.date_input(
         "选择日期",
-        value=date.today(),
+        value=st.session_state.get('calendar_target_date', date.today()),
         key="calendar_date",
         label_visibility="collapsed"
     )
+    # 更新目标日期（当用户通过日期选择器更改时）
+    if selected_date != st.session_state.get('calendar_target_date'):
+        st.session_state['calendar_target_date'] = selected_date
 
 with col_nav:
     nav_col1, nav_col2, nav_col3 = st.columns(3)
     with nav_col1:
-        if st.button("◀ 上周", use_container_width=True):
-            st.session_state['calendar_date'] = selected_date - timedelta(days=7)
+        if st.button("◀ 上周", use_container_width=True, key="nav_prev"):
+            st.session_state['nav_action'] = 'prev_week'
             st.rerun()
     with nav_col2:
-        if st.button("今天", use_container_width=True):
-            st.session_state['calendar_date'] = date.today()
+        if st.button("今天", use_container_width=True, key="nav_today"):
+            st.session_state['nav_action'] = 'today'
             st.rerun()
     with nav_col3:
-        if st.button("下周 ▶", use_container_width=True):
-            st.session_state['calendar_date'] = selected_date + timedelta(days=7)
+        if st.button("下周 ▶", use_container_width=True, key="nav_next"):
+            st.session_state['nav_action'] = 'next_week'
             st.rerun()
 
 # 获取周课表数据
 headers_tuple = tuple(sorted(get_api_headers().items()))
-week_data = fetch_week_schedule(headers_tuple, selected_date.isoformat())
+current_user_id = st.session_state.get('user', {}).get('id')
+week_data = fetch_week_schedule(headers_tuple, selected_date.isoformat(), current_user_id)
 
 if week_data:
     # 显示周范围
@@ -255,7 +273,7 @@ c1, c2 = st.columns([2, 1])
 
 with c1:
     st.markdown("### 📚 今日课程")
-    today_schedules = fetch_today_schedule(headers_tuple)
+    today_schedules = fetch_today_schedule(headers_tuple, current_user_id)
     
     if today_schedules:
         cols = st.columns(min(3, len(today_schedules)))
@@ -301,8 +319,45 @@ with c1:
 
 with c2:
     st.markdown("### 🔔 智能提醒")
-    st.info("📝 **备课提醒**：下节课是《立体几何》，建议准备3D模型教具。")
-    st.warning("⚠️ **关注名单**：高一(3)班的张同学昨日课堂低头率较高，请留意。")
+    
+    # 基于实际课表的智能提醒
+    if today_schedules:
+        # 查找下一节课（待开始的课程）
+        upcoming_courses = [c for c in today_schedules if c.get('status') == 'upcoming']
+        
+        if upcoming_courses:
+            next_course = upcoming_courses[0]
+            course_name = next_course.get('course_name', '下一节课')
+            class_name = next_course.get('class_name', '')
+            start_time = next_course.get('start_time', '')[:5] if next_course.get('start_time') else ''
+            
+            st.info(f"📝 **备课提醒**：下节课是《{course_name}》（{class_name}），{start_time}开始，请提前准备教学材料。")
+        else:
+            # 如果今天没有待开始的课，查找下一个工作日的第一节课
+            if week_data and week_data.get('days'):
+                today_str = date.today().isoformat()
+                found_next = False
+                
+                for day in week_data.get('days', []):
+                    if day.get('date', '') > today_str and day.get('schedules'):
+                        first_course = day['schedules'][0]
+                        course_name = first_course.get('course_name', '课程')
+                        class_name = first_course.get('class_name', '')
+                        day_name = day.get('day_name', '')
+                        
+                        st.info(f"📝 **备课提醒**：{day_name}第一节是《{course_name}》（{class_name}），请提前备课。")
+                        found_next = True
+                        break
+                
+                if not found_next:
+                    st.info("📝 **备课提醒**：本周课程已全部完成，祝您周末愉快！")
+            else:
+                st.info("📝 **备课提醒**：今日课程已全部完成，请注意查看下周课表。")
+    else:
+        st.info("📝 **备课提醒**：今日暂无课程安排。")
+    
+    # 关注名单（可以后续基于行为分析数据优化）
+    st.warning("⚠️ **关注名单**：如需查看学生课堂表现，请前往「行为分析」页面。")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
