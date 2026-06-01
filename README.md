@@ -1,23 +1,62 @@
-# ClassInsight AI - 课堂行为智能分析系统
+# ClassInsight AI — 课堂行为智能分析系统
 
-## 环境配置
+基于 **YOLO-vHeat** 算法的课堂教学行为智能分析平台。系统通过对课堂视频进行目标检测与行为识别，自动统计师生行为、生成时间序列与雷达图，并结合大模型给出教学优化建议，面向中小学教师与教研管理者。
 
-### ⚠️ 重要提示：必须使用 CMD + conda 环境
+---
 
-所有 Python 相关操作都必须在 **CMD 终端** 中，并先激活 **backup** conda 环境：
+## ✨ 主要功能
 
-```cmd
-conda activate backup
+- **视频上传与处理**：上传课堂视频，后台异步进行帧采样、行为检测与结果入库。
+- **行为分析**：整课行为统计、时间序列趋势、异常片段检测、师生行为相关性分析。
+- **教学建议**：基于分析结果生成雷达图、改进建议与优秀教学片段，集成 AI 教学顾问。
+- **课表管理**：教师课表的录入、批量导入与日历展示。
+- **用户与权限**：教师 / 管理员 / 超级管理员三级角色，含登录安全策略与失败审计。
+- **超级管理员系统**：独立前端，负责登录安全配置与模型管理。
+
+---
+
+## 🧱 技术栈
+
+| 层 | 技术 |
+|----|------|
+| 前端 | Streamlit（多页应用） |
+| 后端 | FastAPI + Uvicorn（异步） |
+| 数据库 | SQLite + SQLAlchemy（异步 ORM） |
+| 认证 | JWT（python-jose）+ bcrypt |
+| 计算机视觉 | YOLO-vHeat（基于 ultralytics 二次开发）+ OpenCV |
+| AI 顾问 | 通义千问（DashScope）+ LangGraph |
+
+---
+
+## 📂 项目结构
+
+```
+System/                       # 仓库根目录
+├── backend/                  # 后端 FastAPI 服务
+│   ├── app/                  # 应用代码（api / models / services / ml / agent / core）
+│   ├── scripts/              # 工具脚本（建账号、导课表、检测可视化）
+│   ├── storage/              # 数据库与视频存储（视频/权重不入库）
+│   ├── main.py               # FastAPI 应用入口
+│   ├── run.py                # 启动脚本
+│   └── requirements.txt
+├── frontend/                 # 前端 Streamlit 应用
+│   ├── app/                  # 教师 / 管理员端（默认端口 8501）
+│   └── super_admin/          # 超级管理员端（默认端口 8502）
+├── model/                    # 模型组件
+│   ├── yolo-vheat/           # YOLO-vHeat（ultralytics 二次开发，可编辑安装）
+│   ├── vHeat-main/           # vHeat 主干网络
+│   └── dataset/              # 数据集（不入库）
+├── docs/                     # 项目文档（见 docs/README.md）
+└── api_spec.yaml             # OpenAPI 规格
 ```
 
-**为什么必须这样做？**
-- PowerShell 可能与 conda 环境有兼容性问题
-- 确保 Python 路径和依赖正确加载
-- 避免模块导入错误
+---
 
-### 1. 激活 Conda 环境（必需）
+## 🚀 快速开始
 
-打开 **CMD 终端**（不是 PowerShell），然后执行：
+> ⚠️ **环境要求**：Windows 下请使用 **CMD 终端**并先激活 conda 环境 `backup`，以保证 Python 路径与依赖正确加载（避免 PowerShell 的兼容性问题）。
+
+### 1. 激活环境
 
 ```cmd
 conda activate backup
@@ -25,237 +64,91 @@ conda activate backup
 
 ### 2. 安装后端依赖
 
-#### 2.1 安装基础依赖
-
-在 **CMD 终端** 中执行：
-
 ```cmd
-conda activate backup
 cd H:\毕业设计\System\backend
 pip install -r requirements.txt
 ```
 
-#### 2.2 安装 Ultralytics (YOLO-vHeat)
+### 3. 安装 YOLO-vHeat（ultralytics 可编辑模式）
 
-**方法 1: 使用安装脚本（推荐）**
-
-Windows:
-```powershell
-cd "H:\毕业设计\System\backend"
-.\install_ultralytics.ps1
-```
-
-Linux/Mac:
-```bash
-cd "H:\毕业设计\System\backend"
-chmod +x install_ultralytics.sh
-./install_ultralytics.sh
-```
-
-**方法 2: 手动安装**
-
-1. 首先安装 PyTorch（根据您的 CUDA 版本选择）：
-```bash
-# CUDA 12.1
+```cmd
+:: 先按 CUDA 版本安装 PyTorch（示例为 CUDA 12.1）
 pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
 
-# CUDA 11.8
-pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu118
-
-# CPU 版本
-pip install torch==2.1.0 torchvision==0.16.0
-```
-
-2. 进入 yolo-vheat 目录并安装 ultralytics（可编辑模式）：
-```bash
-cd "H:\毕业设计\System\Model components\yolo-vheat"
+:: 以可编辑模式安装 ultralytics（含 vHeat 模块）
+cd H:\毕业设计\System\model\yolo-vheat
 pip install -e .
+
+:: 验证
+python -c "from ultralytics import YOLO; from ultralytics.nn.modules import C2fHeat; print('OK')"
 ```
 
-3. 验证安装：
-```bash
-python -c "from ultralytics import YOLO; from ultralytics.nn.modules import C2fHeat; print('✅ 安装成功！')"
-```
+> 模型权重放在 `backend/app/ml/weights/`（`.pt` 文件不纳入 git）。
 
-## 启动服务
-
-### 1. 启动后端 API 服务
-
-在 **CMD 终端** 中执行：
+### 4. 启动后端服务
 
 ```cmd
-conda activate backup
-
-```
-
-后端服务将在 `http://localhost:8000` 启动
-API 文档: `http://localhost:8000/api/docs`
-
-### 2. 创建初始用户
-
-#### 2.1 创建超级管理员账号（必需）
-
-在 **CMD 终端** 中执行：
-
-```cmd
-conda activate backup
 cd H:\毕业设计\System\backend
-python create_super_admin.py
+python run.py
 ```
 
-**默认账号信息**：
-- 用户名: `superadmin`
-- 密码: `superadmin123`
-- 邮箱: `2013119322@qq.com`
+- API 地址：`http://localhost:8000`
+- API 文档：`http://localhost:8000/api/docs`
 
-⚠️ **重要**：首次登录后请立即修改密码！
-
-#### 2.2 创建普通用户（可选）
-
-访问 API 文档 `http://localhost:8000/api/docs`，使用 `POST /api/v1/auth/register` 创建用户：
-
-```json
-{
-  "username": "teacher001",
-  "email": "teacher@example.com",
-  "password": "123456",
-  "role": "teacher",
-  "unit": "实验中学",
-  "class_name": "高一(1)班"
-}
-```
-
-**注意**：注册接口只能创建 `teacher` 或 `admin` 角色，不能创建 `super_admin` 角色。
-
-### 3. 导入课表数据（可选）
-
-有两种方式可以导入课表数据：
-
-#### 方法1：通过前端界面导入（推荐）
-
-1. 登录管理员账号
-2. 进入「📅 课表管理」页面
-3. 点击「📥 批量导入」标签页
-4. 选择「使用预设Mock数据」或「手动输入JSON数据」
-5. 选择教师并点击「开始导入」
-
-**优点**：可视化界面，操作简单，支持实时预览
-
-#### 方法2：通过命令行脚本导入
-
-在 **CMD 终端** 中执行：
+### 5. 创建账号
 
 ```cmd
-conda activate backup
 cd H:\毕业设计\System\backend
-python mock_schedules.py
+python scripts\create_super_admin.py
 ```
 
-**说明**：
-- 脚本会自动查找用户 `teacher001`（如果不存在会提示先创建用户）
-- 会创建一周的课表数据（周一到周五，每天3-4节课）
-- 如果用户已有课表，会询问是否清空后重新导入
-- 导入后，前端首页的"智能课表日历"将显示这些课程
+默认超级管理员：用户名 `superadmin` / 密码 `superadmin123`（**首次登录请立即修改密码**）。
 
-**自定义课表数据**：
-- 前端方式：在「批量导入」页面修改JSON数据
-- 脚本方式：编辑 `backend/mock_schedules.py` 文件中的 `MOCK_SCHEDULES` 列表
+普通教师 / 管理员可通过 API 文档的 `POST /api/v1/auth/register` 创建（注册接口不能创建 `super_admin`）。
 
-### 4. 启动前端服务
+### 6. 启动前端
 
-在 **CMD 终端** 中执行：
+教师 / 管理员端：
 
 ```cmd
-conda activate backup
-cd H:\毕业设计\System\System\frontend
+cd H:\毕业设计\System\frontend\app
 streamlit run app.py
 ```
+访问 `http://localhost:8501`
 
-前端服务将在 `http://localhost:8501` 启动
-
-## 系统说明
-
-### 系统架构
-
-系统分为两个独立的 Streamlit 应用：
-
-1. **普通系统** (`System/frontend/`)
-   - 端口：8501（默认）
-   - 用户：教师、管理员
-   - 功能：视频上传、行为分析、教学建议、用户管理、课表管理
-
-2. **超级管理员系统** (`System/super_admin/`)
-   - 端口：8502
-   - 用户：超级管理员
-   - 功能：登录安全配置、模型管理
-
-### 启动超级管理员系统
-
-在 **CMD 终端** 中执行：
+超级管理员端：
 
 ```cmd
-conda activate backup
-cd H:\毕业设计\System\System\super_admin
+cd H:\毕业设计\System\frontend\super_admin
 streamlit run app.py --server.port 8502
 ```
+访问 `http://localhost:8502`
 
-访问地址：`http://localhost:8502`
+### 7. （可选）导入示例课表
 
-## 常见问题
+```cmd
+cd H:\毕业设计\System\backend
+python scripts\mock_schedules.py
+```
+或在前端「📅 课表管理 → 批量导入」中以可视化方式导入。
 
-### ❓ 为什么教师看不到课表？
+---
 
-如果导入课表后，教师用户在首页看不到课表，请按以下步骤排查：
+## 📖 文档
 
-**1. 验证课表是否成功导入**
+完整文档见 [`docs/`](./docs/README.md)，主要包含：
 
-访问 API 文档查询：
-1. 打开 `http://localhost:8000/api/docs`
-2. 找到 `GET /api/v1/schedules/my` 接口
-3. 使用教师账号的 Token 进行测试
-4. 查看返回的课表数据
+- [后端 API 接口](./docs/backend/api.md) ・ [数据库设计](./docs/backend/database-design.md)
+- [前端架构](./docs/frontend/architecture.md) ・ [用户使用指南](./docs/frontend/user-guide.md)
+- [行为分析算法](./docs/behavior/) ・ [超级管理员系统](./docs/super-admin.md)
+- [论文与答辩材料](./docs/thesis/)
 
-**2. 检查用户 ID 是否匹配**
+---
 
-导入脚本默认为 `teacher001` 导入课表，确保：
-- 该用户已存在
-- 用户 ID 与导入的课表中的 `user_id` 一致
+## ❓ 常见问题
 
-**3. 检查后端服务状态**
-
-确认后端服务正常运行在 `http://localhost:8000`
-
-**4. 清除前端缓存**
-
-前端课表数据有 60 秒缓存，可以：
-- 等待 60 秒后刷新页面
-- 清除浏览器缓存
-- 重启前端服务
-
-**5. 通过管理员界面查看**
-
-使用管理员账号登录，在「📅 课表管理」页面查看是否有课表数据。
-
-### ❓ 运行脚本时提示模块找不到？
-
-**原因**：未在正确的 conda 环境中运行
-
-**解决方法**：
-1. 打开 **CMD** 终端（不是 PowerShell）
-2. 执行 `conda activate backup`
-3. 确认环境激活成功后再运行脚本
-
-### ❓ 数据库文件在哪里？
-
-数据库文件位置：`backend/storage/classinsight.db`
-
-可以使用 SQLite 工具查看数据库内容。
-
-## 注意事项
-
-1. **⚠️ 必须使用 CMD + conda 环境**：所有 Python 脚本都必须在 CMD 中激活 `backup` 环境后运行
-2. **超级管理员账号**：首次使用需要运行 `create_super_admin.py` 创建账号
-3. **密码安全**：默认密码为 `superadmin123`，请首次登录后立即修改
-4. **端口冲突**：确保两个系统使用不同端口（8501 和 8502）
-5. **数据库**：确保后端服务已启动，数据库已初始化
-6. **课表数据**：导入课表时确保 `user_id` 与实际教师 ID 匹配
+- **运行脚本提示找不到模块**：未激活 `backup` 环境，或未使用 CMD。请先 `conda activate backup`。
+- **`from ultralytics import` 报错**：重命名 `model/` 目录后需重新执行 `pip install -e .`（可编辑安装记录的是旧路径）。
+- **教师看不到课表**：确认后端已启动、课表 `user_id` 与教师 ID 匹配，前端有 60 秒缓存，可稍候或刷新。
+- **数据库位置**：`backend/storage/classinsight.db`，可用 SQLite 工具查看。
+- **端口冲突**：教师端 8501、超管端 8502，确保不冲突。

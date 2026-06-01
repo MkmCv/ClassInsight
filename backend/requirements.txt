@@ -43,7 +43,7 @@ scipy>=1.11.0  # 用于统计计算（皮尔逊相关系数）
 #    pip install torch==2.1.0 torchvision==0.16.0
 #
 # 2. 进入 yolo-vheat 目录并安装 ultralytics（可编辑模式）：
-#    cd "H:\毕业设计\System\Model components\yolo-vheat"
+#    cd "H:\毕业设计\System\model\yolo-vheat"
 #    pip install -e .
 #
 # 3. 验证安装：

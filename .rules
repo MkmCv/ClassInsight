@@ -47,25 +47,32 @@ cd H:\毕业设计\System\backend
 python run.py
 ```
 
-### 运行前端服务
+### 运行前端服务（教师/管理员端）
 ```cmd
 conda activate backup
-cd H:\毕业设计\System\System\frontend
+cd H:\毕业设计\System\frontend\app
 streamlit run app.py
+```
+
+### 运行超级管理员前端
+```cmd
+conda activate backup
+cd H:\毕业设计\System\frontend\super_admin
+streamlit run app.py --server.port 8502
 ```
 
 ### 运行工具脚本（导入课表）
 ```cmd
 conda activate backup
 cd H:\毕业设计\System\backend
-python mock_schedules.py
+python scripts\mock_schedules.py
 ```
 
 ### 创建用户
 ```cmd
 conda activate backup
 cd H:\毕业设计\System\backend
-python create_super_admin.py
+python scripts\create_super_admin.py
 ```
 
 ## 数据库与课表说明
@@ -116,14 +123,16 @@ asyncio.run(check_schedules())
 ```
 H:\毕业设计\System\
 ├── backend/              # 后端 FastAPI 服务
-│   ├── app/             # 应用代码
-│   ├── storage/         # 数据存储（数据库、视频）
-│   ├── run.py           # 启动脚本
-│   └── mock_schedules.py # 课表导入脚本
-├── System/frontend/     # 前端 Streamlit 应用
-│   ├── pages/          # 页面文件
-│   └── app.py          # 主应用
-└── docs/               # 文档
+│   ├── app/              # 应用代码（api/models/services/ml/agent）
+│   ├── scripts/          # 工具脚本（建账号、导课表、可视化等）
+│   ├── storage/          # 数据存储（数据库、视频）
+│   ├── main.py           # FastAPI 应用入口
+│   └── run.py            # 启动脚本
+├── frontend/             # 前端 Streamlit 应用
+│   ├── app/              # 教师/管理员端（pages/、app.py）
+│   └── super_admin/      # 超级管理员端
+├── model/                # 模型组件（yolo-vheat、vHeat-main、dataset）
+└── docs/                 # 文档（backend/frontend/behavior/thesis）
 ```
 
 ## 开发提示
