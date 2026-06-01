@@ -60,3 +60,7 @@ backend/storage/**/*.mov
 # 误生成的版本号文件
 backend/2.1.0
 
+# SQLite 运行时临时文件
+*.db-shm
+*.db-wal
+
