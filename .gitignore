@@ -30,7 +30,7 @@ desktop.ini
 *.tmp
 
 # 数据集
-Model components/dataset/
+model/dataset/
 
 # 存储文件（视频、权重等大文件）
 backend/storage/videos/
