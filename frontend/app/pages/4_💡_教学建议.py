@@ -84,20 +84,84 @@ def fetch_highlights(_headers_tuple, video_id):
         return None
 
 
+def _adapt_compare_api_to_ui(payload: dict) -> dict | None:
+    """将 GET /optimization/compare 的 comparison/trends 转为本页图表用的 metrics/history。"""
+    comp = payload.get("comparison") or []
+    if not comp:
+        return None
+
+    def s5(x) -> float:
+        try:
+            return min(5.0, max(0.0, float(x) * 5.0))
+        except (TypeError, ValueError):
+            return 0.0
+
+    def avg_prev(key: str, items: list) -> float:
+        if not items:
+            return 0.0
+        return sum(float(p["metrics"].get(key) or 0) for p in items) / len(items)
+
+    sorted_items = sorted(
+        comp,
+        key=lambda it: (it.get("lesson_date") or "", int(it.get("video_id") or 0)),
+    )
+    last = sorted_items[-1]
+    prev = sorted_items[:-1] if len(sorted_items) > 1 else sorted_items
+    cur = last["metrics"]
+    ai, aa, ae = (
+        avg_prev("interaction_rate", prev),
+        avg_prev("attention_rate", prev),
+        avg_prev("engagement_score", prev),
+    )
+    ci, ca, ce = (
+        float(cur.get("interaction_rate") or 0),
+        float(cur.get("attention_rate") or 0),
+        float(cur.get("engagement_score") or 0),
+    )
+    g_cur = (ci + ce) / 2.0
+    g_avg = (ai + ae) / 2.0
+    r_cur = ca * 0.6 + ci * 0.4
+    r_avg = aa * 0.6 + ai * 0.4
+
+    metrics = [
+        {"name": "互动率", "current": s5(ci), "average": s5(ai)},
+        {"name": "专注度", "current": s5(ca), "average": s5(aa)},
+        {"name": "综合投入", "current": s5(ce), "average": s5(ae)},
+        {"name": "教师引导", "current": s5(g_cur), "average": s5(g_avg)},
+        {"name": "课堂节奏", "current": s5(r_cur), "average": s5(r_avg)},
+    ]
+
+    history = []
+    for item in sorted_items:
+        ld = item.get("lesson_date") or ""
+        short = ld[5:10] if len(ld) >= 10 else (ld or "?")
+        try:
+            sc = min(10.0, max(0.0, float(item["metrics"].get("engagement_score") or 0) * 10.0))
+        except (TypeError, ValueError):
+            sc = 0.0
+        history.append({"date": short, "score": round(sc, 1)})
+
+    return {"metrics": metrics, "history": history, "raw": payload}
+
+
 @st.cache_data(ttl=60, show_spinner=False)
-def fetch_comparison(_headers_tuple):
-    """获取跨课次对比数据（缓存60秒）"""
+def fetch_comparison(_headers_tuple, _video_ids_tuple: tuple[int, ...] | None):
+    """获取跨课次对比数据（缓存60秒）。需至少 2 个视频 ID，与后端 /optimization/compare 一致。"""
+    if not _video_ids_tuple or len(_video_ids_tuple) < 2:
+        return None
     try:
         headers = dict(_headers_tuple)
+        video_ids = ",".join(str(i) for i in _video_ids_tuple)
         response = requests.get(
-            f"{API_BASE_URL}/optimization/comparison",
+            f"{API_BASE_URL}/optimization/compare",
             headers=headers,
-            timeout=10
+            params={"video_ids": video_ids},
+            timeout=10,
         )
         if response.status_code == 200:
-            return response.json()
+            return _adapt_compare_api_to_ui(response.json())
         return None
-    except:
+    except Exception:
         return None
 
 
@@ -137,7 +201,14 @@ with st.sidebar:
 # 获取数据（使用缓存）
 recommendations_data = fetch_recommendations(headers_tuple, selected_video_id) if selected_video_id else None
 highlights_data = fetch_highlights(headers_tuple, selected_video_id) if selected_video_id else None
-comparison_data = fetch_comparison(headers_tuple)
+comparison_vid_tuple = None
+if videos and len(videos) >= 2:
+    rows = sorted(
+        [(v.get("lesson_date") or "", int(v["video_id"])) for v in videos[:15]],
+        key=lambda x: (x[0], x[1]),
+    )
+    comparison_vid_tuple = tuple(x[1] for x in rows[:10])
+comparison_data = fetch_comparison(headers_tuple, comparison_vid_tuple)
 
 # ========== 页面标题 ==========
 st.markdown("# 💡 AI 教学优化助手")
