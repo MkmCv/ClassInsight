@@ -131,7 +131,7 @@ H:\毕业设计\System\
 ├── frontend/             # 前端 Streamlit 应用
 │   ├── app/              # 教师/管理员端（pages/、app.py）
 │   └── super_admin/      # 超级管理员端
-├── model/                # 模型组件（yolo-vheat、vHeat-main、dataset）
+├── model/                # 视觉算法（yolo-vheat，dataset 不入库）
 └── docs/                 # 文档（backend/frontend/behavior）
 ```
 
