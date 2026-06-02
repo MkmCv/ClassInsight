@@ -1,0 +1,3 @@
+[submodule "model/yolo-vheat"]
+	path = model/yolo-vheat
+	url = https://github.com/MkmCv/YOLO12-vHeat.git

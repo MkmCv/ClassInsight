@@ -31,9 +31,13 @@ Pillow>=10.2.0
 scipy>=1.11.0  # 用于统计计算（皮尔逊相关系数）
 
 # === ML/AI (YOLO-vHeat) ===
-# 注意：ultralytics 需要从 yolo-vheat 项目以可编辑模式安装
-# 
+# 注意：ultralytics 需要从 yolo-vheat 子模块以可编辑模式安装
+# （yolo-vheat 为 git 子模块，对应 https://github.com/MkmCv/YOLO12-vHeat）
+#
 # 安装步骤：
+# 0. 确保已拉取子模块：
+#    git submodule update --init --recursive
+#
 # 1. 首先安装 PyTorch（根据您的 CUDA 版本选择）：
 #    # CUDA 12.1
 #    pip install torch==2.1.0 torchvision==0.16.0 --index-url https://download.pytorch.org/whl/cu121
@@ -42,8 +46,8 @@ scipy>=1.11.0  # 用于统计计算（皮尔逊相关系数）
 #    # CPU 版本
 #    pip install torch==2.1.0 torchvision==0.16.0
 #
-# 2. 进入 yolo-vheat 目录并安装 ultralytics（可编辑模式）：
-#    cd "H:\毕业设计\System\model\yolo-vheat"
+# 2. 进入 yolo-vheat 子模块目录并安装 ultralytics（可编辑模式）：
+#    cd model/yolo-vheat
 #    pip install -e .
 #
 # 3. 验证安装：
