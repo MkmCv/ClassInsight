@@ -132,7 +132,7 @@ H:\毕业设计\System\
 │   ├── app/              # 教师/管理员端（pages/、app.py）
 │   └── super_admin/      # 超级管理员端
 ├── model/                # 模型组件（yolo-vheat、vHeat-main、dataset）
-└── docs/                 # 文档（backend/frontend/behavior/thesis）
+└── docs/                 # 文档（backend/frontend/behavior）
 ```
 
 ## 开发提示

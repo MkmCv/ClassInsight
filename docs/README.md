@@ -19,18 +19,11 @@ docs/
 │   ├── tech-summary.md    # 前端技术选型总结
 │   ├── admin-page-spec.md # 管理员页面规格
 │   └── user-guide.md      # 用户使用指南
-├── behavior/              # 行为分析算法文档
-│   ├── analysis-flow.md   # 行为分析整体流程
-│   ├── classifier.md      # 行为分类器实现
-│   ├── correlation.md     # 相关性与模式分析
-│   └── microteaching.md   # 微格教学分析
-└── thesis/                # 毕业论文 / 答辩材料
-    ├── 开题报告.md
-    ├── 数据集与模型总结.md
-    ├── 答辩陈述稿.md
-    ├── 答辩问答记录.md
-    ├── 论文进展自检.md
-    └── 教学建议与优化说明.md
+└── behavior/              # 行为分析算法文档
+    ├── analysis-flow.md   # 行为分析整体流程
+    ├── classifier.md      # 行为分类器实现
+    ├── correlation.md     # 相关性与模式分析
+    └── microteaching.md   # 微格教学分析
 ```
 
 ## 快速导航
@@ -44,4 +37,5 @@ docs/
 - **行为分析算法**：见 [behavior/](./behavior/) 目录
 - **前端开发**：见 [frontend/](./frontend/) 目录
 - **超级管理员系统**：见 [super-admin.md](./super-admin.md)
-- **论文与答辩**：见 [thesis/](./thesis/) 目录
+
+> 说明：视觉算法（YOLO-vHeat）已拆分为独立项目维护；论文与答辩材料不纳入本仓库。
